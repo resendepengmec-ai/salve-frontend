@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALVe — Ficha de Avaliação do Bem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EEF0ED; --sheet:#FCFCFB; --ink:#1B2021; --muted:#6B7476;
+    --steel:#2C383D; --hair:#D9DEDA; --hair-2:#E7EAE6;
+    --value:#0B6E4F; --value-bg:#E7F1EC; --blue:#16506B; --blue-bg:#E5EEF2; --warn:#9A3B24;
+    --shadow:0 1px 2px rgba(27,32,33,.06), 0 8px 28px rgba(27,32,33,.07);
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+
+  .toolbar{position:sticky;top:0;z-index:20;background:rgba(238,240,237,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--hair);display:flex;align-items:center;gap:12px;padding:9px 18px;flex-wrap:wrap}
+  .toolbar .brand{font-family:"IBM Plex Sans Condensed";font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--steel)}
+  .toolbar .brand b{color:var(--value)}
+  .toolbar .grow{flex:1}
+  .btn{font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--hair);background:var(--sheet);color:var(--ink);padding:7px 13px;border-radius:7px;transition:border-color .12s,background .12s}
+  .btn:hover{border-color:#b9c0bb}
+  .btn.primary{background:var(--steel);border-color:var(--steel);color:#fff}
+  .btn.primary:hover{background:#1f2a2e}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .conn{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:#c0392b}
+  .dot.on{background:var(--value)}
+
+  .connbar{max-width:1120px;margin:12px auto 0;background:var(--sheet);border:1px solid var(--hair);border-radius:9px;padding:10px 14px;display:none;gap:10px;align-items:center;flex-wrap:wrap}
+  .connbar.show{display:flex}
+  .connbar input{font:inherit;font-size:12.5px;border:1px solid var(--hair);border-radius:6px;padding:6px 9px}
+  .connbar input#apiBase{flex:1;min-width:220px} .connbar input#apiToken{flex:2;min-width:220px;font-family:"IBM Plex Mono";font-size:11.5px}
+
+  .sheet{max-width:1120px;margin:14px auto 60px;background:var(--sheet);border:1px solid var(--hair);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+  .doc-head{background:var(--steel);color:#fff;padding:16px 26px;display:flex;align-items:baseline;gap:18px}
+  .doc-head h1{margin:0;font-family:"IBM Plex Sans Condensed";font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:19px}
+  .doc-head .norm{font-size:11px;letter-spacing:.08em;color:#aeb9bc;text-transform:uppercase}
+  .doc-head .id{margin-left:auto;font-family:"IBM Plex Mono";font-size:12px;color:#cdd5d7;display:flex;gap:8px;align-items:center}
+  .doc-head .id input{width:120px}
+  .body{padding:6px 26px 28px}
+
+  .faixa{border-top:1px solid var(--hair-2);padding:16px 0}
+  .faixa:first-child{border-top:0}
+  .fx-head{display:flex;align-items:center;gap:10px;margin:0 0 13px}
+  .fx-head .t{font-family:"IBM Plex Sans Condensed";font-weight:600;text-transform:uppercase;letter-spacing:.09em;font-size:12.5px;color:var(--steel)}
+  .fx-head .ref{font-family:"IBM Plex Mono";font-size:10.5px;color:var(--muted);background:#f0f2ef;border:1px solid var(--hair-2);border-radius:4px;padding:1px 6px}
+  .fx-head .rule{flex:1;height:1px;background:var(--hair-2)}
+
+  .grid{display:grid;gap:12px 16px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  .span2{grid-column:span 2} .span-all{grid-column:1/-1}
+  @media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr 1fr}.span2{grid-column:1/-1}}
+  @media(max-width:520px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+  .field{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .field>label{font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .field input,.field select,.field textarea{font:inherit;font-size:13.5px;color:var(--ink);background:#fff;border:1px solid var(--hair);border-radius:6px;padding:7px 9px;width:100%;transition:border-color .12s,box-shadow .12s}
+  .field input.mono,.field select.mono{font-family:"IBM Plex Mono";font-size:13px}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg)}
+  .field textarea{resize:vertical;min-height:56px;line-height:1.5}
+  .field .hint{font-size:10.5px;color:var(--muted)}
+  .ro{background:#f4f6f3!important;color:var(--steel);font-weight:500}
+
+  .dt-list{border:1px solid var(--hair);border-radius:8px;overflow:hidden}
+  .dt-row{display:grid;grid-template-columns:26px 190px 1fr;align-items:center;border-top:1px solid var(--hair-2)}
+  .dt-row:first-child{border-top:0}
+  .dt-row .ix{font-family:"IBM Plex Mono";font-size:11px;color:var(--muted);text-align:center;background:#f4f6f3;align-self:stretch;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--hair-2)}
+  .dt-row input{border:0;border-radius:0;padding:7px 10px;background:transparent}
+  .dt-row input:focus{box-shadow:none;background:var(--blue-bg)}
+  .dt-row .k{border-right:1px solid var(--hair-2);font-weight:600;font-size:12.5px}
+
+  .fotos{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:640px){.fotos{grid-template-columns:1fr 1fr}}
+  .foto{aspect-ratio:4/3;border:1px dashed #c3cac4;border-radius:8px;background:#f4f6f3 center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11.5px;cursor:pointer;text-align:center;padding:8px;position:relative;overflow:hidden}
+  .foto:hover{border-color:var(--blue)} .foto.has{border-style:solid;border-color:var(--hair)}
+  .foto .cap{position:absolute;left:6px;top:6px;background:rgba(27,32,33,.72);color:#fff;font-family:"IBM Plex Mono";font-size:10px;padding:1px 5px;border-radius:3px}
+
+  .funcbox{display:flex;gap:8px;flex-wrap:wrap}
+  .funcbox label{display:flex;align-items:center;gap:6px;font-size:12.5px;border:1px solid var(--hair);border-radius:20px;padding:5px 12px;cursor:pointer}
+  .funcbox input{accent-color:var(--blue)}
+
+  .universais{background:var(--blue-bg);border:1px solid #cfe0e8;border-radius:9px;padding:14px}
+  .universais .cap{font-size:10.5px;color:var(--blue);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
+
+  .metodos{background:#f6f8f5;border:1px solid var(--hair);border-radius:10px;padding:16px}
+  .method-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  @media(max-width:820px){.method-grid{grid-template-columns:1fr}}
+  .mcard{background:#fff;border:1px solid var(--hair);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:11px;position:relative}
+  .mcard.on{border-color:var(--value);box-shadow:0 0 0 2px var(--value-bg)}
+  .mcard .mtop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .mcard .mname{font-family:"IBM Plex Sans Condensed";font-weight:600;font-size:15px;letter-spacing:.01em}
+  .mcard .mref{font-size:10.5px;color:var(--muted);margin-top:1px}
+  .mcard .mval{font-family:"IBM Plex Mono";font-weight:600;font-size:19px;color:var(--value);text-align:right;white-space:nowrap}
+  .mparams{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px}
+  .mparams.one{grid-template-columns:1fr}
+  .mparams .none{font-size:11.5px;color:var(--muted);font-style:italic;grid-column:1/-1}
+  .mcard .mmem{font-family:"IBM Plex Mono";font-size:10.5px;color:var(--muted);border-top:1px solid var(--hair-2);padding-top:7px;min-height:14px}
+  .mcard .mfoot{display:flex;justify-content:space-between;align-items:center;margin-top:auto}
+  .mcard .inc{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer}
+  .mcard .inc input{accent-color:var(--value)}
+  .mcard.erro .mval{color:var(--warn);font-size:12px}
+  .crit-vars{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  @media(max-width:520px){.crit-vars{grid-template-columns:1fr 1fr}}
+  .crit-c{font-family:"IBM Plex Mono";font-size:12px;color:var(--steel);background:#f0f2ef;border-radius:5px;padding:3px 8px;display:inline-block}
+  .expr-in{font-family:"IBM Plex Mono";font-size:13px;border:1px solid var(--hair);border-radius:7px;padding:8px 10px;width:100%}
+  .expr-in.err{border-color:var(--warn);box-shadow:0 0 0 3px #f3e2dd}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .chip{font-family:"IBM Plex Mono";font-size:10.5px;background:#f0f2ef;border:1px solid var(--hair-2);border-radius:5px;padding:2px 6px;cursor:pointer;color:var(--steel)}
+  .chip:hover{border-color:var(--blue);background:var(--blue-bg)}
+
+  .consolida{display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;margin-top:16px;border-top:1px solid var(--hair-2);padding-top:16px}
+  .adotado{flex:1;min-width:230px}
+  .adotado .lbl{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .adotado .val{font-family:"IBM Plex Mono";font-weight:600;font-size:34px;color:var(--value);line-height:1.1}
+  .adotado .sub{font-size:12px;color:var(--muted);margin-top:2px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .adotado select{font:inherit;font-size:12px;border:1px solid var(--hair);border-radius:5px;padding:2px 6px}
+  .cbox{display:flex;gap:22px}
+  .cbox .c .n{font-family:"IBM Plex Mono";font-size:16px;font-weight:600}
+  .cbox .c .k{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .spread{margin-top:14px}
+  .spread .ends{display:flex;justify-content:space-between;font-family:"IBM Plex Mono";font-size:10.5px;color:var(--muted)}
+  .spread .track{position:relative;height:34px;margin:20px 8px 6px}
+  .spread .line{position:absolute;left:0;right:0;top:50%;height:2px;background:var(--hair);border-radius:2px}
+  .spread .band{position:absolute;top:50%;transform:translateY(-50%);height:8px;background:var(--value-bg);border:1px solid #bfe0cf;border-radius:5px}
+  .spread .pt{position:absolute;top:50%;width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid var(--blue);transform:translate(-50%,-50%)}
+  .spread .pt .tip{position:absolute;bottom:15px;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:"IBM Plex Mono";font-size:9.5px;color:var(--muted)}
+  .spread .mean{position:absolute;top:calc(50% - 13px);height:26px;width:2px;background:var(--value);transform:translateX(-50%)}
+
+  .conf{border:1px solid var(--hair);border-radius:9px;overflow:hidden}
+  .conf .ch{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;font-family:"IBM Plex Sans Condensed";font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:12.5px;color:var(--steel);background:#f4f6f3}
+  .conf .badge{font-size:11px;padding:2px 9px;border-radius:20px;font-weight:600}
+  .conf .badge.ok{background:var(--value-bg);color:var(--value)} .conf .badge.no{background:#f3e2dd;color:var(--warn)}
+  .conf ul{list-style:none;margin:0;padding:8px 14px;columns:2;column-gap:24px}
+  @media(max-width:640px){.conf ul{columns:1}}
+  .conf li{font-size:12px;padding:3px 0;break-inside:avoid;color:var(--muted)}
+  .conf li b{font-family:"IBM Plex Mono";font-size:10.5px;margin-right:5px}
+  .conf li.ok{color:var(--ink)} .conf li .mk{display:inline-block;width:13px}
+  .conf li.ok .mk{color:var(--value)} .conf li.no .mk{color:var(--warn)}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--steel);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+
+  @media print{body{background:#fff}.toolbar,.connbar,.toast{display:none}.sheet{box-shadow:none;border:0;margin:0;max-width:none}.faixa,.mcard,.metodos,.conf{break-inside:avoid}}
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <span class="brand"><b>SALVe</b> · Sistema de Avaliação e Laudo de Ativos</span>
+    <span class="grow"></span>
+    <span class="conn"><span class="dot" id="connDot"></span><span id="connLabel">offline</span></span>
+    <button class="btn" id="btnConn">Conexão</button>
+    <button class="btn" id="btnExemplo">Exemplo</button>
+    <button class="btn" id="btnSalvar" disabled>Salvar</button>
+    <button class="btn primary" id="btnImprimir">Imprimir / PDF</button>
+  </div>
+
+  <div class="connbar" id="connbar">
+    <input id="apiBase" placeholder="URL da API (ex.: https://salve.onrender.com)">
+    <input id="apiToken" placeholder="Token JWT (do login Google)">
+    <button class="btn primary" id="btnConectar">Conectar</button>
+    <span class="conn" id="connMsg" style="color:var(--muted)"></span>
+  </div>
+
+  <div class="sheet">
+    <div class="doc-head">
+      <div><h1>Ficha de Avaliação do Bem</h1><div class="norm">Método de custos · comparativo direto com depreciação</div></div>
+      <div class="id">ID <input class="mono" id="f_id" placeholder="(novo)"></div>
+    </div>
+    <div class="body">
+
+      <section class="faixa">
+        <div class="fx-head"><span class="t">Cliente</span><span class="ref">NBR 14653-1 · 10.1 a</span><span class="rule"></span></div>
+        <div class="grid g3">
+          <div class="field span2"><label>Projeto</label><input id="f_projeto"></div>
+          <div class="field"><label>Cliente</label><input id="f_cliente"></div>
+          <div class="field"><label>Contato</label><input id="f_contato"></div>
+          <div class="field"><label>Fone</label><input class="mono" id="f_fone"></div>
+          <div class="field"><label>e-mail</label><input id="f_email"></div>
+        </div>
+      </section>
+
+      <section class="faixa">
+        <div class="fx-head"><span class="t">Dados gerais</span><span class="ref">NBR 14653-1 · 7.3</span><span class="rule"></span></div>
+        <div class="grid g4">
+          <div class="field span2"><label>Nome do bem</label><input id="f_nome"></div>
+          <div class="field"><label>Patrimônio</label><input class="mono" id="f_patrimonio"></div>
+          <div class="field"><label>Conta contábil</label><input class="mono" id="f_conta"></div>
+          <div class="field span-all"><label>Descrição</label><textarea id="f_descricao"></textarea></div>
+          <div class="field"><label>Nota fiscal</label><input class="mono" id="f_nf"></div>
+          <div class="field span2"><label>Documentos / anexos</label><input id="f_docs" placeholder="manuais, projetos, catálogos…"></div>
+        </div>
+      </section>
+
+      <section class="faixa">
+        <div class="fx-head"><span class="t">Localização</span><span class="ref">NBR 14653-5 · 7.8</span><span class="rule"></span></div>
+        <div class="grid g3">
+          <div class="field"><label>Área</label><input id="f_area"></div>
+          <div class="field"><label>Setor</label><input id="f_setor"></div>
+          <div class="field"><label>Local</label><input id="f_local"></div>
+        </div>
+      </section>
+
+      <section class="faixa">
+        <div class="fx-head"><span class="t">Dados técnicos</span><span class="ref">NBR 14653-5 · 7.8</span><span class="rule"></span></div>
+        <div class="grid g2" style="margin-bottom:12px">
+          <div class="field"><label>Fabricante</label><input id="f_fabricante"></div>
+          <div class="field"><label>Link / fonte técnica</label><input id="f_dtlink" placeholder="https://…"></div>
+        </div>
+        <div class="dt-list" id="dtList"></div>
+      </section>
+
+      <section class="faixa">
+        <div class="fx-head"><span class="t">Vistoria</span><span class="ref">NBR 14653-5 · 7.7</span><span class="rule"></span></div>
+        <div class="grid g3">
+          <div class="field"><label>Data <span class="hint">(7.7.5)</span></label><input type="date" class="mono" id="f_data"></div>
+          <div class="field"><label>Acompanhado por</label><input id="f_acomp"></div>
+          <div class="field"><label>Funcionamento observado <span class="hint">(7.7.1)</span></label>
+            <div class="funcbox">
+              <label><input type="radio" name="func" value="Sim">Sim</label>
+              <label><input type="radio" name="func" value="Não">Não</label>
+              <label><input type="radio" name="func" value="N.A.">N.A.</label>
+            </div>
+          </div>
+          <div class="field span-all"><label>Observação do perito <span class="hint">(7.7.2)</span></label><textarea id="f_obs"></textarea></div>
+        </div>
+        <div style="margin:14px 0 6px" class="fx-head"><span class="ref">Imagens · 7.7.4</span><span class="rule"></span></div>
+        <div class="fotos" id="fotos">
+          <div class="foto" data-i="1"><span class="cap">Imagem 01</span>+ adicionar</div>
+          <div class="foto" data-i="2"><span class="cap">Imagem 02</span>+ adicionar</div>
+          <div class="foto" data-i="3"><span class="cap">Imagem 03</span>+ adicionar</div>
+        </div>
+        <div class="field span-all" style="margin-top:12px"><label>Considerações do perito sobre a vistoria <span class="hint">(7.7.3)</span></label><textarea id="f_consid"></textarea></div>
+      </section>
+
+      <section class="faixa">
+        <div class="fx-head"><span class="t">Classificação, metodologia e processos</span><span class="ref">NBR 14653-5 · 5, 7, 8, 9</span><span class="rule"></span></div>
+        <div class="grid g4">
+          <div class="field span2"><label>Setor econômico</label><select id="f_setorec"></select></div>
+          <div class="field span2"><label>Subsetor econômico</label><input id="f_subsetor"></div>
+          <div class="field"><label>Tipo do bem</label><select id="f_tipobem"></select></div>
+          <div class="field"><label>Grau de agregação</label><select id="f_agregacao"></select></div>
+          <div class="field span2"><label>Situação</label><select id="f_situacao"></select></div>
+          <div class="field"><label>Finalidade</label><select id="f_finalidade"></select></div>
+          <div class="field"><label>Tipo de valor</label><select id="f_tipovalor"></select></div>
+          <div class="field"><label>Grau de fundamentação</label><select id="f_fundamentacao"></select></div>
+          <div class="field"><label>Metodologia</label><select id="f_metodologia"></select></div>
+          <div class="field span-all"><label>Justificativa da metodologia <span class="hint">(9i)</span></label><textarea id="f_metodojustif"></textarea></div>
+        </div>
+      </section>
+
+      <section class="faixa">
+        <div class="fx-head"><span class="t">Atributos do bem</span><span class="ref">comuns a todos os métodos</span><span class="rule"></span></div>
+        <div class="universais">
+          <div class="cap">Estes valores valem para qualquer método de depreciação</div>
+          <div class="grid g4">
+            <div class="field"><label>Valor do bem novo/similar</label><input class="mono" id="f_vn" inputmode="decimal"></div>
+            <div class="field"><label>Valor residual (%)</label><input class="mono" id="f_vr" inputmode="decimal"></div>
+            <div class="field"><label>Idade real (meses)</label><input class="mono" id="f_idade" inputmode="decimal"></div>
+            <div class="field"><label>Vida útil T (meses)</label><input class="mono" id="f_T" inputmode="decimal"></div>
+            <div class="field span2"><label>Fonte do valor novo</label><input id="f_vnfonte" placeholder="consulta ao fabricante…"></div>
+            <div class="field span2"><label>Fonte da vida útil</label><input id="f_Tfonte" placeholder="IBAPE/SP — estudo de vidas úteis…"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="faixa" style="border-top:2px solid var(--steel)">
+        <div class="fx-head"><span class="t">Métodos de depreciação</span><span class="ref">cada método, suas tabelas</span><span class="rule"></span></div>
+        <div class="metodos">
+          <div class="method-grid" id="methodGrid"></div>
+
+          <div class="consolida">
+            <div class="adotado">
+              <div class="lbl">Valor adotado</div>
+              <div class="val mono" id="valAdotado">R$ 0,00</div>
+              <div class="sub">critério
+                <select id="f_adotado"></select>
+                <label style="display:flex;gap:5px;align-items:center;cursor:pointer"><input type="checkbox" id="f_arred"> arredondar 1% (6.8.1)</label>
+              </div>
+            </div>
+            <div class="cbox">
+              <div class="c"><div class="n mono" id="cMedia">—</div><div class="k">Média</div></div>
+              <div class="c"><div class="n mono" id="cDesvio">—</div><div class="k">Desvio-padrão</div></div>
+              <div class="c"><div class="n mono" id="cN">—</div><div class="k">Métodos</div></div>
+            </div>
+          </div>
+
+          <div class="spread">
+            <div class="ends"><span>menor</span><span>dispersão entre métodos</span><span>maior</span></div>
+            <div class="track" id="spreadTrack"><div class="line"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="faixa">
+        <div class="fx-head"><span class="t">Conformidade do laudo</span><span class="ref">NBR 14653-1 · item 9</span><span class="rule"></span></div>
+        <div class="grid g4" style="margin-bottom:12px">
+          <div class="field span2"><label>Pressupostos e condições limitantes <span class="hint">(9f · 6.9)</span></label><textarea id="f_pressupostos"></textarea></div>
+          <div class="field span2"><label>Análise de mercado e liquidez <span class="hint">(7.12)</span></label><textarea id="f_mercado"></textarea></div>
+          <div class="field"><label>Grau de liquidez</label><select id="f_liquidez"></select></div>
+          <div class="field"><label>Data de referência <span class="hint">(9k)</span></label><input type="date" class="mono" id="f_dataref"></div>
+          <div class="field"><label>Local de elaboração <span class="hint">(9m)</span></label><input id="f_localelab"></div>
+          <div class="field"><label>Data de elaboração <span class="hint">(9m)</span></label><input type="date" class="mono" id="f_dataelab"></div>
+        </div>
+        <div class="conf">
+          <div class="ch"><span>Requisitos mínimos (a–n)</span><span class="badge no" id="confBadge">—</span></div>
+          <ul id="confList"></ul>
+        </div>
+      </section>
+
+      <section class="faixa">
+        <div class="fx-head"><span class="t">Avaliador</span><span class="ref">NBR 14653-5 · 10.1 l</span><span class="rule"></span></div>
+        <div class="grid g4">
+          <div class="field span2"><label>Engenheiro de avaliação</label><input id="f_aval"></div>
+          <div class="field"><label>CREA</label><input class="mono" id="f_crea"></div>
+          <div class="field"><label>Graduação</label><input id="f_grad"></div>
+          <div class="field span2"><label>e-mail</label><input id="f_avalemail"></div>
+          <div class="field span2"><label>Empresa</label><input id="f_empresa"></div>
+          <div class="field span-all" style="display:flex;gap:10px;align-items:center;flex-direction:row">
+            <button class="btn" id="btnCalcularServ" disabled>Calcular no servidor</button>
+            <button class="btn" id="btnAssinar" disabled>Assinar laudo</button>
+            <span class="conn" id="assinaMsg" style="color:var(--muted)"></span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+const ATRIBUTOS_BEM=[{chave:'vn',rotulo:'Valor do bem novo/similar'},{chave:'vrFrac',rotulo:'Valor residual (fração)'},{chave:'idadeMeses',rotulo:'Idade real (meses)'},{chave:'Tmeses',rotulo:'Vida útil (meses)'}];
+function universais(bem){const vn=+bem.vn||0,vrFrac=+bem.vrFrac||0,idadeMeses=+bem.idadeMeses||0,Tmeses=+bem.Tmeses||0;return{vn,vrFrac,vrAbs:vn*vrFrac,idadeMeses,Tmeses,tAnos:idadeMeses/12,tanos:Tmeses/12};}
+function evalExpr(s,vars){let i=0;const F={exp:Math.exp,ln:Math.log,log:Math.log10,log10:Math.log10,sqrt:Math.sqrt,abs:Math.abs,pow:Math.pow,min:Math.min,max:Math.max};
+  const ws=()=>{while(i<s.length&&/\s/.test(s[i]))i++;};
+  function ex(){let v=tm();ws();while(s[i]==='+'||s[i]==='-'){const o=s[i++];const r=tm();v=o==='+'?v+r:v-r;ws();}return v;}
+  function tm(){let v=fa();ws();while(s[i]==='*'||s[i]==='/'){const o=s[i++];const r=fa();v=o==='*'?v*r:v/r;ws();}return v;}
+  function fa(){let v=un();ws();if(s[i]==='^'){i++;return Math.pow(v,fa());}return v;}
+  function un(){ws();if(s[i]==='-'){i++;return -un();}if(s[i]==='+'){i++;return un();}return pr();}
+  function pr(){ws();if(s[i]==='('){i++;const v=ex();ws();if(s[i++]!==')')throw new Error('parêntese');return v;}
+    let m=/^[0-9]*\.?[0-9]+([eE][+-]?[0-9]+)?/.exec(s.slice(i));if(m){i+=m[0].length;return parseFloat(m[0]);}
+    let id=/^[A-Za-z_][A-Za-z0-9_]*/.exec(s.slice(i));
+    if(id){i+=id[0].length;ws();
+      if(s[i]==='('){i++;const a=[];ws();if(s[i]!==')'){a.push(ex());ws();while(s[i]===','){i++;a.push(ex());ws();}}if(s[i++]!==')')throw new Error('parêntese');
+        if(!Object.prototype.hasOwnProperty.call(F,id[0]))throw new Error('função: '+id[0]);return F[id[0]](...a);}
+      if(!Object.prototype.hasOwnProperty.call(vars,id[0]))throw new Error('variável: '+id[0]);return vars[id[0]];}
+    throw new Error('token inesperado');}
+  const r=ex();ws();if(i<s.length)throw new Error('expressão inválida');return r;}
+const METODOS={
+  caires:{id:'caires',nome:'De Caíres',autor:'Hélio de Caíres',referencia:'PINI, 1978',parametros:[
+    {chave:'mu',rotulo:'Coeficiente de manutenção',tipo:'tabela',simbolo:'µ',tabela:[{rotulo:'Inexistente',valor:0},{rotulo:'Sensível: Corretiva',valor:5},{rotulo:'Normal: Corretiva + Preventiva básica',valor:10},{rotulo:'Rigorosa: Corretiva + Preventiva controlada',valor:15},{rotulo:'Perfeita: Corretiva + Preventiva + Preditiva',valor:20}]},
+    {chave:'tau',rotulo:'Regime de trabalho',tipo:'tabela',simbolo:'τ',tabela:[{rotulo:'Máquina não instalada',valor:0},{rotulo:'Leve: 1 a 6 h/dia',valor:5},{rotulo:'Normal: 6 a 8 h/dia',valor:10},{rotulo:'Pesado: 8 a 16 h/dia',valor:15},{rotulo:'Extremo: 24 h/dia',valor:20}]}],
+    calcular(u,p){const mu=+p.mu||0,tau=+p.tau||0;const af=0.853081710*Math.exp(0.067348748*tau-0.041679277*mu-0.001022860*mu*tau);const dx=1.347961431/(1+0.347961431*Math.exp(3.579760093*af*(u.idadeMeses/u.Tmeses)));return{va:((1-u.vrFrac)*dx+u.vrFrac)*u.vn,memoria:{af:+af.toFixed(6),dx:+dx.toFixed(6)}};}},
+  'ross-heidecke':{id:'ross-heidecke',nome:'Ross-Heidecke',autor:'Ross + Heidecke',referencia:'estado de conservação',parametros:[
+    {chave:'h',rotulo:'Estado de conservação (Heidecke)',tipo:'tabela',simbolo:'h',tabela:[{rotulo:'Novo',valor:0},{rotulo:'Entre novo e regular',valor:0.00032},{rotulo:'Regular',valor:0.0252},{rotulo:'Entre regular e reparos simples',valor:0.0809},{rotulo:'Reparo simples',valor:0.181},{rotulo:'Entre reparo simples e importantes',valor:0.322},{rotulo:'Reparos importantes',valor:0.516},{rotulo:'Entre reparos importantes e sem valor',valor:0.752},{rotulo:'Sem valor',valor:1}]}],
+    calcular(u,p){const h=+p.h||0;const alpha=u.tanos?0.5*(u.tAnos/u.tanos+(u.tAnos*u.tAnos)/(u.tanos*u.tanos)):0;const dx=(alpha+(1-alpha)*h)*(1-u.vrFrac);return{va:u.vn*(1-dx),memoria:{alpha:+alpha.toFixed(4),dx:+dx.toFixed(6)}};}},
+  criticidade:{id:'criticidade',nome:'Criticidade',autor:'João Carlos A. Barbosa',referencia:'manutenção',parametros:[
+    {chave:'criticidade',rotulo:'Índice de criticidade (C)',tipo:'somatorio',simbolo:'C',variaveis:[{chave:'complexidadeTecnologica',rotulo:'Complexidade tecnológica',min:0,max:2},{chave:'importanciaProcesso',rotulo:'Importância p/ o processo',min:0,max:3},{chave:'nacionalImportado',rotulo:'Nacional ou importado',min:0,max:1},{chave:'taxaFalhas',rotulo:'Taxa de falhas',min:0,max:2},{chave:'jornadaTrabalho',rotulo:'Jornada de trabalho',min:0,max:2},{chave:'montanteInvestimento',rotulo:'Montante do investimento',min:0,max:2}]}],
+    calcular(u,p){const C=typeof p.C==='number'?p.C:Object.values(p.criticidade||{}).reduce((s,v)=>s+(+v||0),0);return{va:u.vn/Math.pow(1+C/100,u.tAnos),memoria:{C}};}},
+  cole:{id:'cole',nome:'De Cole',autor:'soma dos dígitos',referencia:'série',parametros:[],
+    calcular(u){const dp=(2*(u.vn-u.vrAbs))/(u.tanos*(u.tanos+1));const da=(u.tAnos*(2*u.tanos-u.tAnos+1)*dp)/2;return{va:u.vn-da,memoria:{dp:+dp.toFixed(2),da:+da.toFixed(2)}};}},
+  economica:{id:'economica',nome:'Depreciação Econômica',editavel:true,formulaPadrao:'Vn * (1 - t/T)',parametros:[
+    {chave:'formula',rotulo:'Fórmula (editável)',tipo:'expressao',variaveis:['Vn','Vr','VrAbs','t','T','tm','Tm','alpha']}],
+    calcular(u,p){const alpha=u.tanos?0.5*(u.tAnos/u.tanos+(u.tAnos*u.tAnos)/(u.tanos*u.tanos)):0;const vars={Vn:u.vn,Vr:u.vrFrac,VrAbs:u.vrAbs,t:u.tAnos,T:u.tanos,tm:u.idadeMeses,Tm:u.Tmeses,alpha};const formula=p.formula||this.formulaPadrao;return{va:evalExpr(String(formula),vars),memoria:{formula}};}},
+};
+const ORDEM=['caires','ross-heidecke','criticidade','cole','economica'];
+function catalogoMetodos(){return ORDEM.map(id=>{const m=METODOS[id];return{id:m.id,nome:m.nome,autor:m.autor,referencia:m.referencia,editavel:!!m.editavel,formulaPadrao:m.formulaPadrao||null,parametros:m.parametros};});}
+function avaliarBem(bem){const u=universais(bem);const ids=bem.selecionados&&bem.selecionados.length?bem.selecionados:ORDEM;const params=bem.params||{};
+  const resultados=ids.filter(id=>METODOS[id]).map(id=>{const m=METODOS[id];try{const r=m.calcular(u,params[id]||{});return{metodo:m.nome,id,va:r.va,memoria:r.memoria,incluido:params[id]?.incluido!==false};}catch(e){return{metodo:m.nome,id,va:null,erro:e.message,incluido:false};}});
+  const incl=resultados.filter(r=>r.incluido&&Number.isFinite(r.va));const valores=incl.map(r=>r.va);
+  const media=valores.length?valores.reduce((s,v)=>s+v,0)/valores.length:NaN;
+  const desvio=valores.length?Math.sqrt(valores.reduce((s,v)=>s+(v-media)**2,0)/valores.length):NaN;
+  const criterio=bem.adotado?.criterio||'media';let valorAdotado=media;
+  if(criterio!=='media'){const r=resultados.find(x=>x.id===criterio);valorAdotado=r&&Number.isFinite(r.va)?r.va:NaN;}
+  return{resultados,media,desvio,valorAdotado,criterio,vidaRemanescenteMeses:Math.max(u.Tmeses-u.idadeMeses,0)};}
+</script>
+
+<script>
+const REQUISITOS_LAUDO=[
+ {id:'a',desc:'Identificação do solicitante',campos:['f_cliente']},
+ {id:'b',desc:'Objetivo (tipo de valor)',campos:['f_tipovalor']},
+ {id:'c',desc:'Finalidade',campos:['f_finalidade']},
+ {id:'d',desc:'Identificação/caracterização do bem',campos:['f_nome','f_descricao']},
+ {id:'e',desc:'Documentação utilizada',campos:['f_docs']},
+ {id:'f',desc:'Pressupostos e condições limitantes',campos:['f_pressupostos']},
+ {id:'g',desc:'Dados efetivamente utilizados',campos:['f_vn','f_T']},
+ {id:'h',desc:'Memória de cálculo',campos:['__memoria__']},
+ {id:'i',desc:'Método + justificativa',campos:['f_metodologia','f_metodojustif']},
+ {id:'j',desc:'Especificação (grau)',campos:['f_fundamentacao']},
+ {id:'k',desc:'Resultado + data de referência',campos:['__valor__','f_dataref']},
+ {id:'l',desc:'Qualificação + assinatura',campos:['f_aval','f_crea']},
+ {id:'m',desc:'Local e data de elaboração',campos:['f_localelab','f_dataelab']},
+ {id:'n',desc:'Requisitos da Parte 5',campos:['__parte5__']},
+];
+function verificarConformidade(ficha,o={}){const res={__memoria__:o.memoriaCalculo===true,__valor__:Number.isFinite(o.valorAdotado),__parte5__:o.parte5!==false};
+  const itens=REQUISITOS_LAUDO.map(r=>({id:r.id,desc:r.desc,satisfeito:r.campos.every(c=>{if(c in res)return res[c];const v=ficha[c];return v!=null&&String(v).trim()!=='';})}));
+  return{conforme:itens.every(i=>i.satisfeito),itens};}
+</script>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const brl=v=>Number.isFinite(v)?"R$ "+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
+const num=v=>{const n=parseFloat(String(v).replace(/\./g,"").replace(",","."));return Number.isFinite(n)?n:(parseFloat(v)||0);};
+function fill(el,arr){el.innerHTML="";arr.forEach(o=>{const op=document.createElement("option");op.value=o;op.textContent=o;el.appendChild(op);});}
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
+
+const SETOR_EC=["Primário","Secundário","Terciário"];
+const TIPO_BEM=["Máquinas","Equipamentos","Acessórios, dispositivos e gabaritos","Ferramentas, moldes e estampos","Instalações","Veículos de transporte","Móveis e utensílios"];
+const SITUACAO=["Bem isolado e instalado","Bem isolado e não instalado","Bem instalado e integrado ao processo de unidade industrial"];
+const FINALIDADE=["Patrimonial e reavaliação de ativos imobilizados","Garantia","Comércio exterior","Seguro (valores em risco)","Compra e venda","Fiscal/tributária"];
+const TIPO_VALOR=["Valor de mercado","Valor Patrimonial","Valor em risco","Valor de liquidação forçada"];
+const AGREGACAO=["Máquina isolada","Linha de produção","Módulo","Unidade industrial"];
+const METODOLOGIA=["Método de custo (comparativo direto e quantificação)","Método comparativo direto de dados de mercado","Método involutivo","Método evolutivo","Método da capitalização da renda"];
+const FUNDAMENTACAO=["I (tabela 3)","II (tabela 3)","III (tabela 3)","I (tabela 4)","II (tabela 4)","III (tabela 4)"];
+const LIQUIDEZ=["Alta","Média","Baixa"];
+
+let CAT = catalogoMetodos();
+const API = { base:"", token:"" };
+
+function buildMethodCards(){
+  const grid=$("methodGrid"); grid.innerHTML="";
+  CAT.forEach(m=>{
+    const card=document.createElement("div"); card.className="mcard"; card.id="card_"+m.id;
+    let params="";
+    if(!m.parametros.length){
+      params=`<div class="mparams one"><div class="none">Usa apenas os atributos universais do bem.</div></div>`;
+    } else {
+      const inner=m.parametros.map(par=>{
+        if(par.tipo==="tabela"){
+          const opts=par.tabela.map(o=>`<option value="${o.valor}" data-rotulo="${o.rotulo}">${o.rotulo}</option>`).join("");
+          return `<div class="field"><label>${par.rotulo} <span class="hint">${par.simbolo||""}</span></label><select id="p_${m.id}_${par.chave}">${opts}</select></div>`;
+        }
+        if(par.tipo==="somatorio"){
+          const vars=par.variaveis.map(v=>`<div class="field"><label>${v.rotulo} <span class="hint">(0–${v.max})</span></label><input class="mono" type="number" min="${v.min}" max="${v.max}" step="1" id="p_${m.id}_${v.chave}" value="0"></div>`).join("");
+          return `<div style="grid-column:1/-1"><div class="crit-vars">${vars}</div><div style="margin-top:8px">Índice total <span class="crit-c" id="p_${m.id}_C">C = 0</span></div></div>`;
+        }
+        if(par.tipo==="expressao"){
+          const chips=par.variaveis.map(v=>`<span class="chip" data-m="${m.id}" data-v="${v}">${v}</span>`).join("");
+          return `<div style="grid-column:1/-1"><label style="font-size:10.5px;font-weight:600;text-transform:uppercase;color:var(--muted)">${par.rotulo}</label>
+            <input class="expr-in" id="p_${m.id}_${par.chave}" spellcheck="false" value="${m.formulaPadrao||""}">
+            <div class="chips" id="chips_${m.id}">${chips}</div></div>`;
+        }
+        return "";
+      }).join("");
+      const cls = m.parametros.length>1 && m.parametros[0].tipo==="tabela" ? "mparams" : "mparams one";
+      params=`<div class="${cls}">${inner}</div>`;
+    }
+    card.innerHTML=`
+      <div class="mtop"><div><div class="mname">${m.nome}</div><div class="mref">${m.autor||""}${m.referencia?" · "+m.referencia:""}</div></div><div class="mval" id="va_${m.id}">—</div></div>
+      ${params}
+      <div class="mmem" id="mem_${m.id}"></div>
+      <div class="mfoot"><label class="inc"><input type="checkbox" id="inc_${m.id}" checked> incluir na consolidação</label></div>`;
+    grid.appendChild(card);
+  });
+  grid.querySelectorAll(".chip").forEach(ch=>ch.addEventListener("click",()=>{
+    const inp=$(`p_${ch.dataset.m}_formula`); const s=inp.selectionStart??inp.value.length,e=inp.selectionEnd??inp.value.length;
+    inp.value=inp.value.slice(0,s)+ch.dataset.v+inp.value.slice(e); inp.focus(); inp.selectionStart=inp.selectionEnd=s+ch.dataset.v.length; render();
+  }));
+  $("f_adotado").innerHTML=`<option value="media">Média dos métodos</option>`+CAT.map(m=>`<option value="${m.id}">${m.nome}</option>`).join("");
+}
+
+function coletarBem(){
+  const bem={ id:$("f_id").value||("BEM-"+Date.now()),
+    vn:num($("f_vn").value), vrFrac:num($("f_vr").value)/100,
+    idadeMeses:num($("f_idade").value), Tmeses:num($("f_T").value),
+    params:{}, adotado:{ criterio:$("f_adotado").value, arredondar:$("f_arred").checked },
+    nome:$("f_nome").value, area:$("f_area").value };
+  CAT.forEach(m=>{
+    const p={ incluido: $("inc_"+m.id)?.checked !== false };
+    m.parametros.forEach(par=>{
+      if(par.tipo==="tabela"){ const el=$(`p_${m.id}_${par.chave}`); if(el){ p[par.chave]=+el.value; p[par.chave+"Rotulo"]=el.selectedOptions[0]?.dataset.rotulo; } }
+      else if(par.tipo==="somatorio"){ const sc={}; par.variaveis.forEach(v=>{ const el=$(`p_${m.id}_${v.chave}`); sc[v.chave]=el?+el.value||0:0; }); p[par.chave]=sc; }
+      else if(par.tipo==="expressao"){ const el=$(`p_${m.id}_${par.chave}`); p.formula=el?el.value:m.formulaPadrao; }
+    });
+    bem.params[m.id]=p;
+  });
+  return bem;
+}
+
+function laudoFields(){
+  const f={}; ["f_cliente","f_tipovalor","f_finalidade","f_nome","f_descricao","f_docs","f_pressupostos","f_vn","f_T","f_metodologia","f_metodojustif","f_fundamentacao","f_dataref","f_localelab","f_dataelab","f_aval","f_crea"].forEach(id=>f[id]=$(id).value);
+  return f;
+}
+
+function render(){
+  const bem=coletarBem();
+  const r=avaliarBem(bem);
+
+  CAT.forEach(m=>m.parametros.forEach(par=>{ if(par.tipo==="somatorio"){ const C=Object.values(bem.params[m.id][par.chave]||{}).reduce((s,v)=>s+(+v||0),0); const el=$(`p_${m.id}_C`); if(el)el.textContent="C = "+C; } }));
+
+  r.resultados.forEach(x=>{
+    const card=$("card_"+x.id), va=$("va_"+x.id), mem=$("mem_"+x.id);
+    const inConsol=x.incluido&&Number.isFinite(x.va);
+    if(card){ card.classList.toggle("on",inConsol); card.classList.toggle("erro",!!x.erro); }
+    if(va) va.textContent=x.erro?("⚠ "+x.erro):(Number.isFinite(x.va)?brl(x.va):"—");
+    if(mem) mem.textContent=x.memoria?Object.entries(x.memoria).map(([k,v])=>`${k}=${v}`).join("  ·  "):"";
+  });
+
+  $("cMedia").textContent=brl(r.media); $("cDesvio").textContent=brl(r.desvio);
+  const nInc=r.resultados.filter(x=>x.incluido&&Number.isFinite(x.va)).length; $("cN").textContent=nInc||"—";
+  let adot=r.valorAdotado; if(bem.adotado.arredondar&&Number.isFinite(adot)){const passo=adot*0.01;adot=passo?Math.round(adot/passo)*passo:adot;}
+  $("valAdotado").textContent=brl(adot);
+
+  const track=$("spreadTrack"); track.querySelectorAll(".band,.pt,.mean").forEach(n=>n.remove());
+  const incl=r.resultados.filter(x=>x.incluido&&Number.isFinite(x.va));
+  if(incl.length){ const vals=incl.map(x=>x.va),mn=Math.min(...vals),mx=Math.max(...vals),pad=(mx-mn)*0.12||1,lo=mn-pad,hi=mx+pad,span=hi-lo,pos=v=>((v-lo)/span)*100;
+    const band=document.createElement("div");band.className="band";band.style.left=pos(mn)+"%";band.style.width=(pos(mx)-pos(mn))+"%";track.appendChild(band);
+    incl.forEach(x=>{const pt=document.createElement("div");pt.className="pt";pt.style.left=pos(x.va)+"%";pt.innerHTML=`<span class="tip">${x.metodo.split(" ")[0]}<br>${brl(x.va)}</span>`;track.appendChild(pt);});
+    const mean=document.createElement("div");mean.className="mean";mean.style.left=pos(r.media)+"%";track.appendChild(mean);
+  }
+
+  const conf=verificarConformidade(laudoFields(),{memoriaCalculo:nInc>0,valorAdotado:adot,parte5:true});
+  $("confList").innerHTML=conf.itens.map(i=>`<li class="${i.satisfeito?'ok':'no'}"><span class="mk">${i.satisfeito?'✓':'○'}</span><b>${i.id})</b>${i.desc}</li>`).join("");
+  const b=$("confBadge"); const faltam=conf.itens.filter(i=>!i.satisfeito).length;
+  b.className="badge "+(conf.conforme?"ok":"no"); b.textContent=conf.conforme?"conforme":`faltam ${faltam}`;
+
+  return {bem, resultado:r, adot};
+}
+
+function setConn(on,label){ $("connDot").classList.toggle("on",on); $("connLabel").textContent=label||(on?"conectado":"offline");
+  ["btnSalvar","btnCalcularServ","btnAssinar"].forEach(id=>$(id).disabled=!on); }
+async function apiFetch(path,opts={}){ const r=await fetch(API.base.replace(/\/$/,"")+path,{...opts,headers:{"Content-Type":"application/json","Authorization":"Bearer "+API.token,...(opts.headers||{})}}); const j=await r.json().catch(()=>({})); if(!r.ok||j.ok===false) throw new Error(j.error||("HTTP "+r.status)); return j.data; }
+async function conectar(){ API.base=$("apiBase").value.trim(); API.token=$("apiToken").value.trim();
+  if(!API.base||!API.token){ $("connMsg").textContent="informe URL e token"; return; }
+  try{ const ref=await apiFetch("/api/salve/referencias"); if(ref?.metodos?.length){ CAT=ref.metodos; buildMethodCards(); }
+    if(ref?.finalidades) fill($("f_finalidade"),ref.finalidades);
+    setConn(true); $("connMsg").textContent="referências carregadas do servidor"; try{localStorage.setItem("salve_api",JSON.stringify(API));}catch(e){}
+    exemplo(); toast("Conectado ao servidor"); }
+  catch(e){ setConn(false,"falha"); $("connMsg").textContent="erro: "+e.message; }
+}
+async function salvar(){ const {bem}=render(); bem.laudo=laudoFields(); try{ await apiFetch("/api/salve/bens",{method:"POST",body:JSON.stringify({record:bem})}); $("f_id").value=bem.id; toast("Bem salvo ("+bem.id+")"); }catch(e){ toast("Erro ao salvar: "+e.message); } }
+async function calcularServidor(){ const {bem}=render(); const id=$("f_id").value||bem.id;
+  try{ await apiFetch("/api/salve/bens",{method:"POST",body:JSON.stringify({record:{...bem,id}})});
+    const d=await apiFetch(`/api/salve/bens/${id}/calcular`,{method:"POST",body:JSON.stringify({avaliacao:bem})});
+    $("f_id").value=id; toast("Servidor: adotado "+brl(d.resultado.valorAdotado)); }catch(e){ toast("Erro: "+e.message); } }
+async function assinar(){ const id=$("f_id").value; if(!id){ toast("Salve o bem antes de assinar"); return; }
+  try{ const d=await apiFetch(`/api/salve/bens/${id}/assinar`,{method:"POST"}); $("assinaMsg").textContent="assinado · "+d.hash.slice(0,12)+"…"; toast("Laudo assinado"); }catch(e){ toast("Erro: "+e.message); } }
+
+function build(){
+  fill($("f_setorec"),SETOR_EC); fill($("f_tipobem"),TIPO_BEM); fill($("f_situacao"),SITUACAO);
+  fill($("f_finalidade"),FINALIDADE); fill($("f_tipovalor"),TIPO_VALOR); fill($("f_agregacao"),AGREGACAO);
+  fill($("f_metodologia"),METODOLOGIA); fill($("f_fundamentacao"),FUNDAMENTACAO); fill($("f_liquidez"),LIQUIDEZ);
+  $("dtList").innerHTML="ABCDEFGHI".split("").map((L,i)=>`<div class="dt-row"><div class="ix">${L}</div><input class="k" id="dtk_${i}" placeholder="parâmetro"><input id="dtv_${i}" placeholder="valor"></div>`).join("");
+  buildMethodCards();
+
+  document.querySelector(".sheet").addEventListener("input",render);
+  document.querySelector(".sheet").addEventListener("change",render);
+  document.querySelectorAll(".foto").forEach(f=>f.addEventListener("click",()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=()=>{const file=inp.files[0];if(!file)return;const rd=new FileReader();rd.onload=()=>{f.style.backgroundImage=`url(${rd.result})`;f.classList.add("has");[...f.childNodes].forEach(n=>{if(n.nodeType===3)n.remove();});};rd.readAsDataURL(file);};inp.click();}));
+
+  $("btnImprimir").onclick=()=>window.print();
+  $("btnExemplo").onclick=exemplo;
+  $("btnConn").onclick=()=>$("connbar").classList.toggle("show");
+  $("btnConectar").onclick=conectar;
+  $("btnSalvar").onclick=salvar;
+  $("btnCalcularServ").onclick=calcularServidor;
+  $("btnAssinar").onclick=assinar;
+
+  try{ const s=JSON.parse(localStorage.getItem("salve_api")||"null"); if(s?.base){ $("apiBase").value=s.base; $("apiToken").value=s.token||""; } }catch(e){}
+}
+
+function exemplo(){
+  const set=(id,v)=>{const e=$(id);if(e)e.value=v;};
+  set("f_projeto","Avaliação patrimonial — 8.000 bens"); set("f_cliente","Cliente (sigilo)");
+  set("f_nome","Grupo gerador de emergência"); set("f_patrimonio","134567"); set("f_conta","2000");
+  set("f_descricao","Grupo gerador STEMAC 200/180 KVA, Stand by. Motor CULMMINS 6CTA G1, Gerador CRAMACO G2R, USCA, tanque 250 L e bateria.");
+  set("f_area","Torre 2"); set("f_setor","Subsolo 1"); set("f_local","Sala do grupo gerador"); set("f_fabricante","STEMAC");
+  set("f_docs","Manual, nota fiscal, catálogo");
+  [["Motor","CULMMINS 6CTA G1"],["Gerador","CRAMACO G2R"],["Potência","200/180 KVA"],["Tensão/Corrente","380 V · 273 A"],["Rotação","1800 rpm"],["Peso","1530 Kg"],["Ano","2011"],["Tanque","250 L — Diesel"],["Autonomia","48 h — plena carga"]].forEach((d,i)=>{set("dtk_"+i,d[0]);set("dtv_"+i,d[1]);});
+  set("f_data","2021-07-30"); set("f_acomp","Sr. Paulo");
+  const rd=document.querySelector('input[name=func][value="Sim"]'); if(rd)rd.checked=true;
+  set("f_obs","Ensaio em vazio e em carga; perfeito funcionamento observado.");
+  set("f_consid","Excelente estado; manutenção por empresa credenciada; OS de preventiva evidenciadas.");
+  $("f_setorec").value="Terciário"; set("f_subsetor","Serviços"); $("f_tipobem").value="Máquinas";
+  $("f_agregacao").value="Máquina isolada"; $("f_situacao").value="Bem isolado e instalado";
+  $("f_finalidade").value="Patrimonial e reavaliação de ativos imobilizados"; $("f_tipovalor").value="Valor Patrimonial";
+  $("f_fundamentacao").value="II (tabela 3)"; $("f_metodologia").value="Método de custo (comparativo direto e quantificação)";
+  set("f_metodojustif","Escassez de dados de mercado para o bem usado; adotado o método de custos com depreciação.");
+  set("f_vn","75.000,00"); set("f_vnfonte","Consulta ao fabricante"); set("f_vr","15"); set("f_idade","108"); set("f_T","360");
+  set("f_Tfonte","IBAPE/SP — estudo de vidas úteis");
+  const sel=(id,val)=>{const e=$(id);if(e)e.value=val;};
+  sel("p_caires_mu","10"); sel("p_caires_tau","5"); sel("p_ross-heidecke_h","0.0809");
+  const crit={complexidadeTecnologica:2,importanciaProcesso:1,nacionalImportado:0,taxaFalhas:1,jornadaTrabalho:0,montanteInvestimento:0};
+  Object.entries(crit).forEach(([k,v])=>sel("p_criticidade_"+k,v));
+  const ef=$("p_economica_formula"); if(ef)ef.value="Vn * (1 - t/T)";
+  set("f_pressupostos","Idoneidade das fontes; não exame de vícios ocultos; laudo restrito à finalidade patrimonial.");
+  set("f_mercado","Mercado secundário restrito; liquidez moderada."); $("f_liquidez").value="Média";
+  set("f_dataref","2021-07-30"); set("f_localelab","Goiânia/GO"); set("f_dataelab","2021-08-05");
+  set("f_aval","Eng. responsável"); set("f_crea","000000"); set("f_grad","Engenharia");
+  render();
+}
+
+build();
+exemplo();
+</script>
+</body>
+</html>

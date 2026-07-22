@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALVe — Entrar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Configure aqui a URL do backend no Render (ou informe no painel do administrador) -->
+<script>window.SALVE_API = "";</script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{--paper:#EEF0ED;--sheet:#FCFCFB;--ink:#1B2021;--muted:#6B7476;--steel:#2C383D;--hair:#D9DEDA;--value:#0B6E4F;--value-bg:#E7F1EC;--blue:#16506B;--blue-bg:#E5EEF2;--warn:#9A3B24;}
+  *{box-sizing:border-box}html,body{margin:0;min-height:100%}
+  body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+  .mono{font-family:"IBM Plex Mono",monospace}
+  .card{width:100%;max-width:430px;background:var(--sheet);border:1px solid var(--hair);border-radius:14px;box-shadow:0 1px 2px rgba(27,32,33,.06),0 12px 40px rgba(27,32,33,.09);overflow:hidden}
+  .top{background:var(--steel);color:#fff;padding:26px 28px;cursor:default}
+  .brand{font-family:"IBM Plex Sans Condensed";font-weight:700;letter-spacing:.16em;text-transform:uppercase;font-size:22px;user-select:none}
+  .brand b{color:#7fd0ae}
+  .sub{font-size:11.5px;letter-spacing:.06em;color:#aeb9bc;text-transform:uppercase;margin-top:4px}
+  .body{padding:26px 28px 22px}
+  .lead{font-size:14px;color:var(--muted);line-height:1.5;margin:0 0 20px}
+  .gbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:11px;font:inherit;font-size:15px;font-weight:600;cursor:pointer;border:1px solid var(--hair);background:#fff;color:var(--ink);padding:12px 16px;border-radius:9px;transition:border-color .12s,box-shadow .12s,opacity .12s}
+  .gbtn:hover:not(:disabled){border-color:#b9c0bb;box-shadow:0 2px 8px rgba(27,32,33,.06)}
+  .gbtn:disabled{opacity:.5;cursor:not-allowed}
+  .gbtn svg{width:19px;height:19px;flex:none}
+  .ghost{width:100%;margin-top:10px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid var(--hair);background:transparent;color:var(--steel);padding:10px 16px;border-radius:9px;transition:border-color .12s,background .12s}
+  .ghost:hover{border-color:#b9c0bb;background:#f4f6f3}
+  .status{margin-top:16px;font-size:12.5px;min-height:18px;display:flex;align-items:center;gap:7px;color:var(--muted)}
+  .status .dot{width:8px;height:8px;border-radius:50%;background:#c9a227;flex:none}
+  .status.ok .dot{background:var(--value)} .status.err .dot{background:var(--warn)} .status.err{color:var(--warn)}
+
+  /* painel admin (escondido) */
+  .admin{margin-top:18px;border:1px solid #dfe4df;border-radius:10px;background:#f4f6f3;padding:14px;display:none}
+  .admin.show{display:block}
+  .admin h3{margin:0 0 4px;font-family:"IBM Plex Sans Condensed";font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--steel)}
+  .admin p{margin:0 0 12px;font-size:11.5px;color:var(--muted);line-height:1.5}
+  .admin label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);display:block;margin:9px 0 4px}
+  .admin input{width:100%;font:inherit;font-size:12.5px;font-family:"IBM Plex Mono";border:1px solid var(--hair);border-radius:7px;padding:8px 10px}
+  .admin input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg)}
+  .admin .go{width:100%;margin-top:12px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid var(--steel);background:var(--steel);color:#fff;border-radius:8px;padding:10px 16px}
+  .admin .go:hover{background:#1f2a2e}
+
+  .foot{padding:0 28px 20px;text-align:center}
+  .foot .adminlink{font-size:11px;color:#aab2ac;cursor:pointer;letter-spacing:.03em;user-select:none;background:none;border:0;padding:6px}
+  .foot .adminlink:hover{color:var(--muted);text-decoration:underline}
+
+  /* modal "saiba mais" */
+  .ov{position:fixed;inset:0;background:rgba(27,32,33,.5);display:none;align-items:center;justify-content:center;padding:20px;z-index:40}
+  .ov.show{display:flex}
+  .modal{max-width:520px;width:100%;background:var(--sheet);border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:88vh;display:flex;flex-direction:column}
+  .modal .mh{background:var(--steel);color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center}
+  .modal .mh h2{margin:0;font-family:"IBM Plex Sans Condensed";font-size:17px;letter-spacing:.08em;text-transform:uppercase}
+  .modal .x{background:none;border:0;color:#cdd5d7;font-size:22px;cursor:pointer;line-height:1}
+  .modal .mb{padding:22px 24px;overflow:auto;font-size:13.5px;line-height:1.6;color:var(--ink)}
+  .modal .mb h4{font-family:"IBM Plex Sans Condensed";text-transform:uppercase;letter-spacing:.05em;font-size:12px;color:var(--steel);margin:16px 0 6px}
+  .modal .mb h4:first-child{margin-top:0}
+  .modal .mb p{margin:0 0 10px;color:var(--muted)}
+  .modal .mb ul{margin:0 0 10px;padding-left:18px;color:var(--muted)}
+  .modal .mb li{margin:3px 0}
+  .modal .mb b{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="top" id="brandTop"><div class="brand">SAL<b>Ve</b></div><div class="sub">Sistema de Avaliação e Laudo de Ativos</div></div>
+    <div class="body">
+      <p class="lead">Acesse com sua conta Google autorizada para elaborar e assinar laudos de avaliação.</p>
+
+      <button class="gbtn" id="btnGoogle" disabled>
+        <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        <span id="btnLabel">Carregando…</span>
+      </button>
+
+      <button class="ghost" id="btnSaiba">Saiba mais sobre o sistema</button>
+
+      <div class="status" id="status"><span class="dot"></span><span id="statusText">iniciando…</span></div>
+
+      <!-- Painel escondido: primeiro acesso do administrador (configura o OAuth) -->
+      <div class="admin" id="adminPanel">
+        <h3>Primeiro acesso — administrador</h3>
+        <p>Use apenas na configuração inicial, quando o servidor ainda não tem o Client ID do Google. Informe os dados abaixo e entre: o primeiro e-mail a acessar torna-se administrador, e o Client ID será salvo no servidor para os demais usuários.</p>
+        <label>URL do servidor (Render)</label>
+        <input id="apiBase" placeholder="https://salve-backend-xxxx.onrender.com" spellcheck="false">
+        <label>Google OAuth Client ID</label>
+        <input id="clientId" placeholder="xxxxx.apps.googleusercontent.com" spellcheck="false">
+        <button class="go" id="btnAdmin">Entrar como administrador</button>
+      </div>
+    </div>
+    <div class="foot"><button class="adminlink" id="toggleAdmin">Configuração inicial do administrador</button></div>
+  </div>
+
+  <!-- Modal "Saiba mais" -->
+  <div class="ov" id="ov">
+    <div class="modal">
+      <div class="mh"><h2>Sobre o SALVe</h2><button class="x" id="btnFecha" aria-label="fechar">&times;</button></div>
+      <div class="mb">
+        <h4>O que é</h4>
+        <p>O <b>SALVe — Sistema de Avaliação e Laudo de Ativos</b> elabora laudos de avaliação de máquinas, equipamentos, instalações e bens industriais, seguindo a ABNT NBR 14653 — Parte 1 (procedimentos gerais) e Parte 5 (bens industriais).</p>
+        <h4>Como avalia</h4>
+        <p>Aplica o método de custos com depreciação por vários métodos, cada um com suas próprias tabelas e fórmula:</p>
+        <ul>
+          <li><b>De Caíres</b> — coeficiente de manutenção e regime de trabalho</li>
+          <li><b>Ross-Heidecke</b> — estado de conservação</li>
+          <li><b>Criticidade</b> — índice a partir de seis variáveis</li>
+          <li><b>De Cole</b> — soma dos dígitos</li>
+          <li><b>Econômica</b> — fórmula editável por item</li>
+        </ul>
+        <p>O valor adotado é consolidado a partir dos métodos escolhidos, com a dispersão entre eles à vista.</p>
+        <h4>Laudo e controle</h4>
+        <p>A ficha verifica a conformidade do laudo (requisitos mínimos, item 9 da Parte 1), registra a memória de cálculo de cada método e permite a assinatura do responsável técnico, com trilha de auditoria e acesso por conta Google autorizada.</p>
+      </div>
+    </div>
+  </div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const FICHA="ficha-avaliacao.html";
+function setStatus(txt,kind){const s=$("status");s.className="status"+(kind?" "+kind:"");$("statusText").textContent=txt;}
+function readStore(){try{return JSON.parse(localStorage.getItem("salve_api")||"null");}catch(e){return null;}}
+function writeStore(base,token){try{const s=readStore()||{};localStorage.setItem("salve_api",JSON.stringify({...s,base,token}));}catch(e){}}
+function trim(u){return (u||"").trim().replace(/\/$/,"");}
+function apiBase(){return trim(window.SALVE_API) || trim(readStore()?.base) || trim($("apiBase").value);}
+
+let tokenClient=null, persistClientId=null;
+
+async function jget(url,opts){const r=await fetch(url,opts);const j=await r.json().catch(()=>({}));if(!r.ok||j.ok===false)throw new Error(j.error||("HTTP "+r.status));return j.data;}
+function esperarGoogle(){return new Promise((res,rej)=>{let n=0;const t=setInterval(()=>{if(window.google?.accounts?.oauth2){clearInterval(t);res();}else if(++n>60){clearInterval(t);rej(new Error("SDK do Google não carregou"));}},100);});}
+
+async function checarSessao(){
+  const s=readStore(); if(!s?.base||!s?.token) return false;
+  try{ await jget(trim(s.base)+"/api/auth/me",{headers:{Authorization:"Bearer "+s.token}});
+    setStatus("sessão ativa — abrindo a ficha…","ok"); location.href=FICHA; return true; }
+  catch(e){ return false; }
+}
+
+// configura o cliente de token do Google com um dado Client ID
+async function setupTokenClient(base, cid){
+  await esperarGoogle();
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:cid, scope:"openid email profile",
+    callback:async (resp)=>{ if(resp.error){ setStatus("Google: "+resp.error,"err"); return; } await entrar(base, resp.access_token); }
+  });
+}
+
+// fluxo normal: busca o Client ID no servidor e habilita o botão do usuário
+async function iniciar(){
+  const base=apiBase();
+  if(!base){ setStatus("informe a URL do servidor na configuração do administrador","err"); return; }
+  setStatus("conectando ao servidor…");
+  try{
+    const cfg=await jget(base+"/api/auth/config/public");
+    if(!cfg.clientId) throw new Error("Client ID não configurado no servidor");
+    await setupTokenClient(base, cfg.clientId);
+    $("btnGoogle").disabled=false; $("btnLabel").textContent="Entrar com Google";
+    setStatus("pronto para entrar","ok");
+  }catch(e){
+    $("btnLabel").textContent="Entrar com Google";
+    if(/Client ID|HTTP 404/.test(e.message)) setStatus("servidor sem OAuth configurado — use a configuração do administrador","err");
+    else setStatus("erro: "+e.message,"err");
+  }
+}
+
+// troca o access token do Google pelo JWT e (se admin) persiste o Client ID
+async function entrar(base, accessToken){
+  setStatus("autenticando…");
+  try{
+    const data=await jget(base+"/api/auth/google",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({googleToken:accessToken})});
+    writeStore(base, data.token);
+    if(persistClientId){
+      try{ await jget(base+"/api/auth/config/client-id",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+data.token},body:JSON.stringify({clientId:persistClientId})}); }
+      catch(e){ /* não bloqueia o login se falhar */ }
+    }
+    setStatus("bem-vindo, "+(data.user?.name||data.user?.email||"")+" — abrindo a ficha…","ok");
+    location.href=FICHA;
+  }catch(e){ setStatus(e.message,"err"); }
+}
+
+// admin: primeiro acesso com Client ID informado no front
+async function entrarComoAdmin(){
+  const base=trim($("apiBase").value)||apiBase();
+  const cid=$("clientId").value.trim();
+  if(!base||!cid){ setStatus("informe URL do servidor e Client ID","err"); return; }
+  try{ localStorage.setItem("salve_api",JSON.stringify({...(readStore()||{}),base})); }catch(e){}
+  setStatus("configurando OAuth do administrador…");
+  try{
+    persistClientId=cid;
+    await setupTokenClient(base, cid);
+    tokenClient.requestAccessToken();
+  }catch(e){ setStatus("erro: "+e.message,"err"); }
+}
+
+// eventos
+$("btnGoogle").onclick=()=>{ if(tokenClient) tokenClient.requestAccessToken(); };
+$("btnAdmin").onclick=entrarComoAdmin;
+$("toggleAdmin").onclick=()=>{ const p=$("adminPanel"); p.classList.toggle("show"); if(p.classList.contains("show")){ if(!$("apiBase").value) $("apiBase").value=apiBase(); $("apiBase").focus(); } };
+$("btnSaiba").onclick=()=>$("ov").classList.add("show");
+$("btnFecha").onclick=()=>$("ov").classList.remove("show");
+$("ov").onclick=e=>{ if(e.target===$("ov")) $("ov").classList.remove("show"); };
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") $("ov").classList.remove("show"); });
+
+// bootstrap
+(async()=>{
+  const stored=readStore(); if(stored?.base) $("apiBase").value=stored.base;
+  if(await checarSessao()) return;
+  iniciar();
+})();
+</script>
+</body>
+</html>
