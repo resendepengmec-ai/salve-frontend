@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALVe — Contratos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>window.SALVE_API = "";</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{--paper:#EEF0ED;--sheet:#FCFCFB;--ink:#1B2021;--muted:#6B7476;--steel:#2C383D;--hair:#D9DEDA;--hair2:#E7EAE6;--value:#0B6E4F;--value-bg:#E7F1EC;--blue:#16506B;--blue-bg:#E5EEF2;--warn:#9A3B24;--warn-bg:#f3e2dd;}
+  *{box-sizing:border-box}html,body{margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px}
+  .mono{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+  .nav{background:var(--steel);color:#fff;display:flex;align-items:center;gap:6px;padding:11px 22px;flex-wrap:wrap;position:sticky;top:0;z-index:10}
+  .nav .brand{font-family:"IBM Plex Sans Condensed";font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:16px;margin-right:14px}
+  .nav .brand b{color:#7fd0ae}
+  .nav a{color:#c9d2d4;text-decoration:none;font-size:13px;font-weight:600;padding:6px 11px;border-radius:7px}
+  .nav a:hover{background:rgba(255,255,255,.08);color:#fff}.nav a.active{background:rgba(255,255,255,.14);color:#fff}
+  .nav .grow{flex:1}.nav .me{font-size:12px;color:#aeb9bc;display:flex;gap:8px;align-items:center}.nav .me b{color:#fff}
+  .nav .role{font-size:10px;text-transform:uppercase;letter-spacing:.05em;background:rgba(255,255,255,.14);padding:2px 7px;border-radius:20px}
+  .nav .out{background:none;border:1px solid rgba(255,255,255,.25);color:#fff;font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:7px;cursor:pointer}
+  .wrap{max-width:1000px;margin:22px auto 60px;padding:0 20px}
+  .card{background:var(--sheet);border:1px solid var(--hair);border-radius:11px;overflow:hidden;box-shadow:0 1px 2px rgba(27,32,33,.05);margin-bottom:20px}
+  .ch{padding:14px 18px;border-bottom:1px solid var(--hair2);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .ch h2{margin:0;font-family:"IBM Plex Sans Condensed";font-weight:600;text-transform:uppercase;letter-spacing:.07em;font-size:13.5px;color:var(--steel)}
+  .addrow{display:flex;gap:10px;padding:14px 18px;flex-wrap:wrap;align-items:end}
+  .fld{display:flex;flex-direction:column;gap:4px}.fld label{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+  .fld input,.fld select,.fld textarea{font:inherit;font-size:13px;border:1px solid var(--hair);border-radius:7px;padding:7px 9px;background:#fff;width:100%}
+  .fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg)}
+  .fld textarea{resize:vertical;min-height:52px;line-height:1.5}
+  .fld.num{width:130px}.fld.cli{flex:1;min-width:160px}.fld.desc{flex:2;min-width:180px}
+  .btn{font:inherit;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--steel);background:var(--steel);color:#fff;border-radius:8px;padding:8px 15px;text-decoration:none;display:inline-block}
+  .btn:hover{background:#1f2a2e}.btn.ghost{background:transparent;color:var(--steel);border-color:var(--hair)}.btn.ghost:hover{background:#f4f6f3}
+  .btn.sm{padding:5px 10px;font-size:12px}
+  .btn.danger{border-color:var(--warn);background:transparent;color:var(--warn)}.btn.danger:hover{background:var(--warn-bg)}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:10px 18px;border-bottom:1px solid var(--hair2);font-weight:600}
+  th.r,td.r{text-align:right}
+  td{padding:11px 18px;border-bottom:1px solid var(--hair2);font-size:13px;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  tbody.click tr{cursor:pointer}tbody.click tr:hover{background:#f4f6f3}
+  .val{font-family:"IBM Plex Mono";font-weight:600;color:var(--value)}
+  .pill{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:20px;font-weight:600}
+  .pill.ok{background:var(--value-bg);color:var(--value)}.pill.no{background:var(--warn-bg);color:var(--warn)}.pill.pdf{background:#eef2f8;color:var(--blue)}
+  .empty{padding:26px 18px;color:var(--muted);text-align:center}
+  .back{background:none;border:0;color:var(--blue);font:inherit;font-weight:600;cursor:pointer;font-size:13px;padding:0}
+  .grid{display:grid;gap:12px 16px;padding:16px 18px}
+  .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}.spanall{grid-column:1/-1}
+  @media(max-width:640px){.g2,.g3{grid-template-columns:1fr}}
+  .dtabs{display:flex;gap:6px;margin:10px 0 16px}
+  .dtab{font:inherit;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--hair);background:var(--sheet);color:var(--muted);padding:8px 15px;border-radius:8px}
+  .dtab.on{background:var(--steel);border-color:var(--steel);color:#fff}
+  .acts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--steel);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}.toast.show{opacity:1}
+  .gate{max-width:460px;margin:80px auto;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="nav">
+    <span class="brand">SAL<b>Ve</b></span>
+    <a href="contratos.html" class="active">Contratos</a>
+    <a href="bens.html">Laudos</a>
+    <a href="admin.html">Usuários</a>
+    <span class="grow"></span><span class="me" id="me"></span>
+    <button class="out" id="btnOut">Sair</button>
+  </div>
+
+  <div class="wrap" id="wrap" style="display:none">
+    <!-- LISTA -->
+    <div id="viewList">
+      <div class="card">
+        <div class="ch"><h2>Novo contrato</h2></div>
+        <div class="addrow">
+          <div class="fld num"><label>Número</label><input id="cNumero" placeholder="001/2026"></div>
+          <div class="fld cli"><label>Cliente</label><input id="cCliente" placeholder="nome do cliente"></div>
+          <div class="fld desc"><label>Objeto (opcional)</label><input id="cDesc" placeholder="objeto do contrato"></div>
+          <button class="btn" id="btnNovo">Criar contrato</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><h2>Contratos</h2><span id="scopeHint" style="font-size:11.5px;color:var(--muted)"></span></div>
+        <table><thead><tr><th>Número</th><th>Cliente</th><th class="r">Itens</th><th class="r">Laudos</th><th class="r">Valor total</th></tr></thead>
+        <tbody class="click" id="listBody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- DETALHE -->
+    <div id="viewDetail" style="display:none">
+      <button class="back" id="btnBack">&larr; voltar aos contratos</button>
+      <h2 id="dTitulo" style="font-family:'IBM Plex Sans Condensed';margin:8px 0 2px">Contrato</h2>
+      <div class="dtabs">
+        <button class="dtab on" id="tabDados">Dados do contrato</button>
+        <button class="dtab" id="tabAcervo">Acervo de laudos</button>
+      </div>
+
+      <!-- ABA 1: DADOS -->
+      <div id="paneDados">
+        <div class="card">
+          <div class="ch"><h2>Identificação</h2><button class="btn sm" id="btnSalvarC">Salvar contrato</button></div>
+          <div class="grid g3">
+            <div class="fld"><label>Número</label><input id="k_numero"></div>
+            <div class="fld"><label>Data de contratação</label><input type="date" id="k_dataContratacao" class="mono"></div>
+            <div class="fld"><label>Situação</label><select id="k_situacao"><option>Em andamento</option><option>Concluído</option><option>Cancelado</option></select></div>
+          </div>
+          <div class="ch" style="border-top:1px solid var(--hair2)"><h2>Contratante</h2></div>
+          <div class="grid g2">
+            <div class="fld"><label>Razão social / nome</label><input id="k_cliente"></div>
+            <div class="fld"><label>CNPJ / CPF</label><input id="k_documento" class="mono"></div>
+            <div class="fld spanall"><label>Endereço</label><input id="k_endereco"></div>
+            <div class="fld"><label>Cidade / UF</label><input id="k_cidadeUF"></div>
+            <div class="fld"><label>Contato</label><input id="k_contato"></div>
+            <div class="fld"><label>Telefone</label><input id="k_telefone" class="mono"></div>
+            <div class="fld"><label>E-mail</label><input id="k_email"></div>
+          </div>
+          <div class="ch" style="border-top:1px solid var(--hair2)"><h2>Objeto e finalidade</h2></div>
+          <div class="grid g2">
+            <div class="fld spanall"><label>Objeto do contrato</label><input id="k_objeto"></div>
+            <div class="fld"><label>Finalidade da avaliação</label><input id="k_finalidade" placeholder="patrimonial, garantia, seguro…"></div>
+            <div class="fld"><label>Objetivo (tipo de valor)</label><input id="k_objetivo" placeholder="valor de mercado, patrimonial…"></div>
+            <div class="fld"><label>Data de referência</label><input type="date" id="k_dataReferencia" class="mono"></div>
+            <div class="fld"><label>Prazo de entrega</label><input type="date" id="k_prazo" class="mono"></div>
+            <div class="fld spanall"><label>Pressupostos e condições gerais</label><textarea id="k_pressupostos"></textarea></div>
+          </div>
+          <div class="ch" style="border-top:1px solid var(--hair2)"><h2>Responsável técnico</h2></div>
+          <div class="grid g3">
+            <div class="fld"><label>Engenheiro</label><input id="k_engenheiro"></div>
+            <div class="fld"><label>CREA</label><input id="k_crea" class="mono"></div>
+            <div class="fld"><label>Empresa</label><input id="k_empresa"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABA 2: ACERVO -->
+      <div id="paneAcervo" style="display:none">
+        <div class="card">
+          <div class="ch"><h2>Equipamentos e laudos <span id="dTot" class="val" style="margin-left:8px"></span></h2>
+            <a class="btn" id="dAdd" href="#">+ Adicionar item</a></div>
+          <table><thead><tr><th>Bem</th><th>Conformidade</th><th class="r">Valor adotado</th><th>Laudo PDF</th><th></th></tr></thead>
+          <tbody id="itensBody"></tbody></table>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted);padding:0 4px">O PDF de cada laudo é gerado a partir dos dados do equipamento e do contrato, e fica armazenado neste contrato.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gate" id="gate" style="display:none"></div>
+  <div class="toast" id="toast"></div>
+
+<!-- motor de cálculo -->
+<script>
+function universais(b){const vn=+b.vn||0,vrFrac=+b.vrFrac||0,idadeMeses=+b.idadeMeses||0,Tmeses=+b.Tmeses||0;return{vn,vrFrac,vrAbs:vn*vrFrac,idadeMeses,Tmeses,tAnos:idadeMeses/12,tanos:Tmeses/12};}
+function evalExpr(s,vars){let i=0;const F={exp:Math.exp,ln:Math.log,log:Math.log10,sqrt:Math.sqrt,abs:Math.abs,pow:Math.pow,min:Math.min,max:Math.max};const ws=()=>{while(i<s.length&&/\s/.test(s[i]))i++;};function ex(){let v=tm();ws();while(s[i]==='+'||s[i]==='-'){const o=s[i++];const r=tm();v=o==='+'?v+r:v-r;ws();}return v;}function tm(){let v=fa();ws();while(s[i]==='*'||s[i]==='/'){const o=s[i++];const r=fa();v=o==='*'?v*r:v/r;ws();}return v;}function fa(){let v=un();ws();if(s[i]==='^'){i++;return Math.pow(v,fa());}return v;}function un(){ws();if(s[i]==='-'){i++;return -un();}if(s[i]==='+'){i++;return un();}return pr();}function pr(){ws();if(s[i]==='('){i++;const v=ex();ws();if(s[i++]!==')')throw 0;return v;}let m=/^[0-9]*\.?[0-9]+([eE][+-]?[0-9]+)?/.exec(s.slice(i));if(m){i+=m[0].length;return parseFloat(m[0]);}let id=/^[A-Za-z_][A-Za-z0-9_]*/.exec(s.slice(i));if(id){i+=id[0].length;ws();if(s[i]==='('){i++;const a=[];ws();if(s[i]!==')'){a.push(ex());ws();while(s[i]===','){i++;a.push(ex());ws();}}if(s[i++]!==')')throw 0;if(!Object.prototype.hasOwnProperty.call(F,id[0]))throw 0;return F[id[0]](...a);}if(!Object.prototype.hasOwnProperty.call(vars,id[0]))throw 0;return vars[id[0]];}throw 0;}const r=ex();ws();if(i<s.length)throw 0;return r;}
+const NOMES={caires:'De Caíres','ross-heidecke':'Ross-Heidecke',criticidade:'Criticidade',cole:'De Cole',economica:'Depreciação Econômica'};
+const METODOS={caires:{calcular(u,p){const mu=+p.mu||0,tau=+p.tau||0;const af=0.853081710*Math.exp(0.067348748*tau-0.041679277*mu-0.001022860*mu*tau);const dx=1.347961431/(1+0.347961431*Math.exp(3.579760093*af*(u.idadeMeses/u.Tmeses)));return((1-u.vrFrac)*dx+u.vrFrac)*u.vn;}},'ross-heidecke':{calcular(u,p){const h=+p.h||0;const a=u.tanos?0.5*(u.tAnos/u.tanos+(u.tAnos*u.tAnos)/(u.tanos*u.tanos)):0;return u.vn*(1-(a+(1-a)*h)*(1-u.vrFrac));}},criticidade:{calcular(u,p){const C=typeof p.C==='number'?p.C:Object.values(p.criticidade||{}).reduce((s,v)=>s+(+v||0),0);return u.vn/Math.pow(1+C/100,u.tAnos);}},cole:{calcular(u){const dp=(2*(u.vn-u.vrAbs))/(u.tanos*(u.tanos+1));return u.vn-(u.tAnos*(2*u.tanos-u.tAnos+1)*dp)/2;}},economica:{calcular(u,p){const a=u.tanos?0.5*(u.tAnos/u.tanos+(u.tAnos*u.tAnos)/(u.tanos*u.tanos)):0;try{return evalExpr(String(p.formula||'Vn*(1-t/T)'),{Vn:u.vn,Vr:u.vrFrac,VrAbs:u.vrAbs,t:u.tAnos,T:u.tanos,tm:u.idadeMeses,Tm:u.Tmeses,alpha:a});}catch(e){return null;}}}};
+const ORDEM=['caires','ross-heidecke','criticidade','cole','economica'];
+function resultadosBem(bem){const u=universais(bem),params=bem.params||{};return ORDEM.map(id=>{let v;try{v=METODOS[id].calcular(u,params[id]||{});}catch(e){v=null;}return{metodo:NOMES[id],va:v,incluido:params[id]?.incluido!==false};});}
+function valorBem(bem){if(Number.isFinite(bem.valorAdotado))return bem.valorAdotado;const params=bem.params||{};const res=resultadosBem(bem);const vals=res.filter(m=>m.incluido&&Number.isFinite(m.va)).map(m=>m.va);const crit=bem.adotado?.criterio||'media';let a;if(crit!=='media'){const m=res.find((_,i)=>ORDEM[i]===crit);a=m&&Number.isFinite(m.va)?m.va:NaN;}else a=vals.length?vals.reduce((s,v)=>s+v,0)/vals.length:NaN;if(bem.adotado?.arredondar&&Number.isFinite(a)){const p=a*.01;a=p?Math.round(a/p)*p:a;}return a;}
+const REQ=[['f_cliente'],['f_tipovalor'],['f_finalidade'],['f_nome','f_descricao'],['f_docs'],['f_pressupostos'],['f_vn','f_T'],['__mem__'],['f_metodologia','f_metodojustif'],['f_fundamentacao'],['__val__','f_dataref'],['f_aval','f_crea'],['f_localelab','f_dataelab'],['__p5__']];
+function conformeBem(bem){const val=valorBem(bem);const res={__mem__:true,__val__:Number.isFinite(val),__p5__:true};const l=bem.laudo||{};return REQ.every(cs=>cs.every(c=>c in res?res[c]:(l[c]!=null&&String(l[c]).trim()!=="")));}
+</script>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const store=(()=>{try{return JSON.parse(localStorage.getItem("salve_api")||"null")}catch(e){return null}})();
+const BASE=((window.SALVE_API||"")||store?.base||"").replace(/\/$/,"");
+const TOKEN=store?.token||"";
+const QS=new URLSearchParams(location.search);
+let me=null, CONTRATOS=[], BENS=[], CURRENT=null, LAUDOS=[];
+const brl=v=>Number.isFinite(v)?"R$ "+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
+const fmt=ms=>{if(!ms)return "—";try{return new Date(ms).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"})}catch(e){return "—"}};
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600);}
+function gate(h){$("wrap").style.display="none";const g=$("gate");g.style.display="block";g.innerHTML=h;}
+if(!BASE||!TOKEN) location.href="index.html";
+
+async function api(path,opts={}){const r=await fetch(BASE+path,{...opts,headers:{"Content-Type":"application/json","Authorization":"Bearer "+TOKEN,...(opts.headers||{})}});const j=await r.json().catch(()=>({}));if(r.status===401){try{localStorage.removeItem("salve_api")}catch(e){};location.href="index.html";throw new Error("sessão");}if(!r.ok||j.ok===false)throw new Error(j.error||("HTTP "+r.status));return j.data;}
+$("btnOut").onclick=async()=>{try{await api("/api/auth/logout",{method:"POST"})}catch(e){};try{localStorage.removeItem("salve_api")}catch(e){};location.href="index.html";};
+
+const bensDoContrato=cid=>BENS.filter(b=>b.contrato===cid);
+const totalContrato=cid=>bensDoContrato(cid).reduce((s,b)=>{const v=valorBem(b);return s+(Number.isFinite(v)?v:0);},0);
+
+async function carregar(){
+  try{ me=await api("/api/auth/me"); }catch(e){ gate("Não foi possível validar a sessão."); return; }
+  $("me").innerHTML=`<b>${me.name||me.email}</b><span class="role">${me.role}</span>`;
+  $("scopeHint").textContent = me.role==="admin" ? "admin — todos os contratos" : "seus contratos";
+  $("wrap").style.display="block";
+  try{ [CONTRATOS,BENS]=await Promise.all([api("/api/salve/contratos"),api("/api/salve/bens")]); }
+  catch(e){ toast("Erro ao carregar: "+e.message); }
+  renderList();
+  const c=QS.get("c"); if(c) abrir(c);
+}
+
+function renderList(){
+  const b=$("listBody");
+  if(!CONTRATOS.length){ b.innerHTML=`<tr><td colspan="5" class="empty">Nenhum contrato ainda. Crie o primeiro acima.</td></tr>`; return; }
+  b.innerHTML=CONTRATOS.slice().sort((x,y)=>(y._updatedAt||0)-(x._updatedAt||0)).map(c=>`<tr data-id="${c.id}">
+      <td><b>${c.numero||"(sem número)"}</b></td><td>${c.cliente||"—"}</td>
+      <td class="r mono">${bensDoContrato(c.id).length}</td>
+      <td class="r mono">${(c.laudos||[]).length}</td>
+      <td class="r val">${brl(totalContrato(c.id))}</td></tr>`).join("");
+  b.querySelectorAll("tr[data-id]").forEach(tr=>tr.onclick=()=>abrir(tr.dataset.id));
+}
+
+function preencherForm(c){
+  const set=(k,v)=>{const e=$("k_"+k);if(e)e.value=v||"";};
+  set("numero",c.numero);set("dataContratacao",c.dataContratacao);set("situacao",c.situacao);
+  if(c.situacao&&$("k_situacao"))$("k_situacao").value=c.situacao;
+  set("cliente",c.cliente);set("documento",c.documento);set("endereco",c.endereco);set("cidadeUF",c.cidadeUF);
+  set("contato",c.contato);set("telefone",c.telefone);set("email",c.email);
+  set("objeto",c.objeto||c.descricao);set("finalidade",c.finalidade);set("objetivo",c.objetivo);
+  set("dataReferencia",c.dataReferencia);set("prazo",c.prazo);set("pressupostos",c.pressupostos);
+  set("engenheiro",c.engenheiro);set("crea",c.crea);set("empresa",c.empresa);
+}
+function coletarForm(){
+  const g=k=>{const e=$("k_"+k);return e?e.value:"";};
+  return { numero:g("numero"),dataContratacao:g("dataContratacao"),situacao:g("situacao"),
+    cliente:g("cliente"),documento:g("documento"),endereco:g("endereco"),cidadeUF:g("cidadeUF"),
+    contato:g("contato"),telefone:g("telefone"),email:g("email"),
+    objeto:g("objeto"),finalidade:g("finalidade"),objetivo:g("objetivo"),
+    dataReferencia:g("dataReferencia"),prazo:g("prazo"),pressupostos:g("pressupostos"),
+    engenheiro:g("engenheiro"),crea:g("crea"),empresa:g("empresa") };
+}
+
+async function abrir(id){
+  const c=CONTRATOS.find(x=>x.id===id); if(!c){ toast("Contrato não encontrado"); return; }
+  CURRENT=c;
+  $("viewList").style.display="none"; $("viewDetail").style.display="block";
+  $("dTitulo").textContent="Contrato "+(c.numero||c.id);
+  preencherForm(c);
+  $("dAdd").href=`ficha-avaliacao.html?contrato=${encodeURIComponent(c.id)}&numero=${encodeURIComponent(c.numero||c.id)}`;
+  aba("dados");
+  try{ LAUDOS=await api(`/api/salve/contratos/${encodeURIComponent(c.id)}/laudos`); }catch(e){ LAUDOS=c.laudos||[]; }
+  renderAcervo();
+  history.replaceState(null,"","contratos.html?c="+encodeURIComponent(c.id));
+}
+
+function renderAcervo(){
+  const itens=bensDoContrato(CURRENT.id);
+  $("dTot").textContent="total "+brl(totalContrato(CURRENT.id));
+  const metaOf=id=>LAUDOS.find(l=>l.bemId===id);
+  const podeExcluir=id=>{const b=BENS.find(x=>x.id===id);return me.role==="admin"||(b&&b._ownerEmail===me.email);};
+  const tb=$("itensBody");
+  if(!itens.length){ tb.innerHTML=`<tr><td colspan="5" class="empty">Nenhum item ainda. Use <b>+ Adicionar item</b>.</td></tr>`; return; }
+  tb.innerHTML=itens.map(x=>{ const m=metaOf(x.id);
+    return `<tr>
+      <td><b>${x.nome||"(sem nome)"}</b><br><span class="mono" style="font-size:11px;color:var(--muted)">${x.id}</span></td>
+      <td>${conformeBem(x)?'<span class="pill ok">conforme</span>':'<span class="pill no">pendente</span>'}</td>
+      <td class="r val">${brl(valorBem(x))}</td>
+      <td>${m?`<span class="pill pdf">PDF · ${fmt(m.at)}</span>`:'<span style="color:var(--muted);font-size:12px">—</span>'}</td>
+      <td><div class="acts">
+        <button class="btn ghost sm" data-gen="${x.id}">${m?'Atualizar PDF':'Gerar PDF'}</button>
+        ${m?`<button class="btn ghost sm" data-dl="${x.id}">Baixar</button>`:''}
+        ${m&&podeExcluir(x.id)?`<button class="btn danger sm" data-rm="${x.id}">✕</button>`:''}
+      </div></td></tr>`;
+  }).join("");
+  tb.querySelectorAll("[data-gen]").forEach(b=>b.onclick=()=>gerarEArmazenar(b.dataset.gen));
+  tb.querySelectorAll("[data-dl]").forEach(b=>b.onclick=()=>baixar(b.dataset.dl));
+  tb.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>excluirLaudo(b.dataset.rm));
+}
+
+// ---- PDF ----
+function gerarPDF(bem){
+  const c=CURRENT, L=bem.laudo||{}; const val=valorBem(bem);
+  const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:"mm",format:"a4"});
+  // ABNT NBR 14724: A4; margens 3/3/2/2 cm (sup/esq/inf/dir); fonte serifada (Times) 12;
+  // entrelinha 1,5; texto justificado; número de página no canto superior direito.
+  const ML=30, MT=30, MR=20, MB=20, PW=210, PH=297, TW=PW-ML-MR;
+  const LH=s=>s*0.3527778*1.5;                 // altura de linha (mm) com entrelinha 1,5
+  doc.setLineHeightFactor(1.5);
+  let y=MT;
+  function ensure(h){ if(y+h>PH-MB){ doc.addPage(); y=MT; } }
+  function par(txt,o){ o=o||{}; const size=o.size||12, bold=!!o.bold, align=o.align||"justify", gap=(o.gap==null?2:o.gap), indent=o.indent||0;
+    doc.setFont("times",bold?"bold":"normal"); doc.setFontSize(size); doc.setTextColor(0);
+    const lines=doc.splitTextToSize(String(txt==null?"—":txt), TW-indent);
+    const h=lines.length*LH(size); ensure(h);
+    doc.text(lines, ML+indent, y, {align:(align==="justify"&&lines.length===1?"left":align), maxWidth:TW-indent});
+    y+=h+gap;
+  }
+  function secao(t){ ensure(LH(12)+2); doc.setFont("times","bold");doc.setFontSize(12);doc.setTextColor(0);doc.text(t,ML,y); y+=LH(12)+1; }
+  function campo(k,v){ doc.setFontSize(12); const kb=k+": ";
+    doc.setFont("times","bold"); const kw=doc.getTextWidth(kb);
+    doc.setFont("times","normal"); const vlines=doc.splitTextToSize(String(v==null||v===""?"—":v), TW-kw);
+    const h=Math.max(1,vlines.length)*LH(12); ensure(h);
+    doc.setFont("times","bold"); doc.text(kb,ML,y);
+    doc.setFont("times","normal"); doc.text(vlines,ML+kw,y);
+    y+=h+1;
+  }
+
+  par("LAUDO DE AVALIAÇÃO",{size:12,bold:true,align:"center",gap:5});
+  par("Elaborado em conformidade com a ABNT NBR 14653-1 e ABNT NBR 14653-5 — método de custos com depreciação.",{size:10,align:"center",gap:7});
+
+  secao("1  Contrato");
+  campo("Número", c.numero);
+  campo("Contratante", c.cliente);
+  campo("Finalidade da avaliação", c.finalidade||L.f_finalidade);
+  campo("Objetivo (tipo de valor)", c.objetivo||L.f_tipovalor);
+  campo("Data de referência", c.dataReferencia||L.f_dataref);
+  y+=3;
+
+  secao("2  Identificação e caracterização do bem");
+  campo("Bem avaliado", bem.nome);
+  if(L.f_descricao) par(L.f_descricao,{gap:2});
+  campo("Localização", [bem.area,bem.setor,bem.local].filter(Boolean).join(" · "));
+  campo("Valor do bem novo", brl(+bem.vn||0));
+  campo("Valor residual", ((+bem.vrFrac||0)*100).toFixed(0)+"%");
+  campo("Idade real", (+bem.idadeMeses||0)+" meses");
+  campo("Vida útil", (+bem.Tmeses||0)+" meses");
+  y+=3;
+
+  secao("3  Metodologia e memória de cálculo");
+  par(L.f_metodojustif||"Adotado o método de custos com depreciação, conforme a ABNT NBR 14653-5, ante a escassez de dados de mercado para o bem usado.",{gap:3});
+  const body=resultadosBem(bem).map(m=>[m.metodo, m.incluido&&Number.isFinite(m.va)?brl(m.va):"não incluído"]);
+  const rows=[["Método de depreciação","Valor"]].concat(body);
+  const col1=TW*0.68, col2=TW-col1, rh=8;
+  ensure(rows.length*rh+2);
+  let ty=y;
+  rows.forEach(function(r,ri){ const head=ri===0;
+    doc.setFont("times",head?"bold":"normal"); doc.setFontSize(11); doc.setTextColor(20);
+    if(head){ doc.setFillColor(238,238,238); doc.rect(ML,ty,TW,rh,"F"); }
+    doc.setDrawColor(120); doc.setLineWidth(0.1);
+    doc.rect(ML,ty,col1,rh); doc.rect(ML+col1,ty,col2,rh);
+    doc.text(String(r[0]),ML+2,ty+rh-3);
+    doc.text(String(r[1]),ML+col1+col2-2,ty+rh-3,{align:"right"});
+    ty+=rh;
+  });
+  y=ty+6;
+
+  secao("4  Resultado");
+  ensure(LH(12)); doc.setFont("times","bold");doc.setFontSize(12);doc.text("Valor adotado: "+brl(val),ML,y); y+=LH(12)+1;
+  campo("Critério de consolidação", (!bem.adotado||bem.adotado.criterio==="media"||!bem.adotado.criterio)?"média dos métodos":(NOMES[bem.adotado.criterio]||bem.adotado.criterio));
+  campo("Conformidade (NBR 14653-1, item 9)", conformeBem(bem)?"laudo conforme":"pendente");
+  y+=2;
+
+  let n=5;
+  if(L.f_pressupostos){ secao(n+"  Pressupostos e condições limitantes"); par(L.f_pressupostos,{gap:3}); n++; }
+
+  secao(n+"  Responsável técnico");
+  campo("Engenheiro", c.engenheiro||L.f_aval);
+  campo("CREA", c.crea||L.f_crea);
+  campo("Empresa", c.empresa);
+  campo("Local e data", [(c.cidadeUF||L.f_localelab||""),(L.f_dataelab||"")].filter(Boolean).join(", "));
+
+  y+=18; ensure(16);
+  doc.setDrawColor(120); doc.line((PW-80)/2, y, (PW+80)/2, y); y+=5;
+  doc.setFont("times","normal");doc.setFontSize(10);doc.setTextColor(0);
+  doc.text(String(c.engenheiro||L.f_aval||"Responsável técnico"),PW/2,y,{align:"center"}); y+=4.5;
+  doc.text("CREA "+(c.crea||L.f_crea||"—"),PW/2,y,{align:"center"});
+
+  // numeração de páginas — canto superior direito (2 cm das bordas)
+  const total=doc.getNumberOfPages();
+  for(let i=1;i<=total;i++){ doc.setPage(i); doc.setFont("times","normal");doc.setFontSize(10);doc.setTextColor(0);
+    doc.text(String(i),PW-MR,20,{align:"right"}); }
+
+  return doc.output("datauristring");
+}
+async function gerarEArmazenar(bemId){
+  const bem=BENS.find(b=>b.id===bemId); if(!bem)return;
+  if(!window.jspdf){ toast("Biblioteca de PDF não carregou"); return; }
+  toast("Gerando PDF…");
+  let uri; try{ uri=gerarPDF(bem); }catch(e){ toast("Erro ao gerar PDF: "+e.message); return; }
+  try{ await api(`/api/salve/contratos/${encodeURIComponent(CURRENT.id)}/laudos`,{method:"POST",body:JSON.stringify({bemId,nome:bem.nome||bemId,pdfBase64:uri})});
+    LAUDOS=await api(`/api/salve/contratos/${encodeURIComponent(CURRENT.id)}/laudos`);
+    const idx=CONTRATOS.findIndex(x=>x.id===CURRENT.id); if(idx>=0)CONTRATOS[idx].laudos=LAUDOS;
+    renderAcervo(); toast("Laudo armazenado no contrato"); }
+  catch(e){ toast("Erro ao armazenar: "+e.message); }
+}
+async function baixar(bemId){
+  try{ const d=await api(`/api/salve/contratos/${encodeURIComponent(CURRENT.id)}/laudos/${encodeURIComponent(bemId)}`);
+    const bem=BENS.find(b=>b.id===bemId); const a=document.createElement("a");
+    a.href=d.pdfBase64; a.download=`laudo-${(bem?.nome||bemId).replace(/[^\w\-]+/g,"_")}.pdf`; a.click(); }
+  catch(e){ toast("Erro: "+e.message); }
+}
+async function excluirLaudo(bemId){
+  if(!confirm("Remover o PDF deste laudo do acervo?"))return;
+  try{ await api(`/api/salve/contratos/${encodeURIComponent(CURRENT.id)}/laudos/${encodeURIComponent(bemId)}`,{method:"DELETE"});
+    LAUDOS=LAUDOS.filter(l=>l.bemId!==bemId); renderAcervo(); toast("Laudo removido"); }
+  catch(e){ toast("Erro: "+e.message); }
+}
+
+// abas do detalhe
+function aba(qual){
+  $("tabDados").classList.toggle("on",qual==="dados");$("tabAcervo").classList.toggle("on",qual==="acervo");
+  $("paneDados").style.display=qual==="dados"?"block":"none";$("paneAcervo").style.display=qual==="acervo"?"block":"none";
+}
+$("tabDados").onclick=()=>aba("dados");
+$("tabAcervo").onclick=()=>aba("acervo");
+
+$("btnSalvarC").onclick=async()=>{
+  const record={...CURRENT, ...coletarForm()}; record.descricao=record.objeto;
+  try{ await api("/api/salve/contratos",{method:"POST",body:JSON.stringify({record})});
+    const idx=CONTRATOS.findIndex(x=>x.id===record.id); if(idx>=0)CONTRATOS[idx]=record; CURRENT=record;
+    $("dTitulo").textContent="Contrato "+(record.numero||record.id); toast("Contrato salvo"); }
+  catch(e){ toast("Erro: "+e.message); }
+};
+
+function voltar(){ $("viewDetail").style.display="none"; $("viewList").style.display="block"; renderList(); history.replaceState(null,"","contratos.html"); }
+$("btnBack").onclick=voltar;
+
+$("btnNovo").onclick=async()=>{
+  const numero=$("cNumero").value.trim(), cliente=$("cCliente").value.trim(), objeto=$("cDesc").value.trim();
+  if(!numero){ toast("Informe o número do contrato"); return; }
+  const record={ id:"CT-"+Date.now(), numero, cliente, objeto, descricao:objeto, situacao:"Em andamento" };
+  try{ await api("/api/salve/contratos",{method:"POST",body:JSON.stringify({record})});
+    $("cNumero").value="";$("cCliente").value="";$("cDesc").value=""; CONTRATOS.push(record); toast("Contrato criado"); abrir(record.id); }
+  catch(e){ toast("Erro: "+e.message); }
+};
+
+carregar();
+</script>
+</body>
+</html>

@@ -118,7 +118,7 @@
 <script>
 "use strict";
 const $=id=>document.getElementById(id);
-const FICHA="ficha-avaliacao.html";
+const FICHA="contratos.html";
 function setStatus(txt,kind){const s=$("status");s.className="status"+(kind?" "+kind:"");$("statusText").textContent=txt;}
 function readStore(){try{return JSON.parse(localStorage.getItem("salve_api")||"null");}catch(e){return null;}}
 function writeStore(base,token){try{const s=readStore()||{};localStorage.setItem("salve_api",JSON.stringify({...s,base,token}));}catch(e){}}

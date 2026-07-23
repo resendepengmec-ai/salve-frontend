@@ -22,6 +22,9 @@
   .toolbar .brand{font-family:"IBM Plex Sans Condensed";font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:13px;color:var(--steel)}
   .toolbar .brand b{color:var(--value)}
   .toolbar .grow{flex:1}
+  .toolbar .navlink{color:var(--muted);text-decoration:none;font-size:12.5px;font-weight:600;padding:6px 10px;border-radius:7px}
+  .toolbar .navlink:hover{background:#f0f2ef;color:var(--steel)}
+  .toolbar .chip{display:none;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--value);background:var(--value-bg);border:1px solid #bfe0cf;border-radius:20px;padding:3px 10px}
   .btn{font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--hair);background:var(--sheet);color:var(--ink);padding:7px 13px;border-radius:7px;transition:border-color .12s,background .12s}
   .btn:hover{border-color:#b9c0bb}
   .btn.primary{background:var(--steel);border-color:var(--steel);color:#fff}
@@ -150,7 +153,11 @@
 </head>
 <body>
   <div class="toolbar">
-    <span class="brand"><b>SALVe</b> · Sistema de Avaliação e Laudo de Ativos</span>
+    <span class="brand"><b>SALVe</b> · Ficha</span>
+    <a href="contratos.html" class="navlink">Contratos</a>
+    <a href="bens.html" class="navlink">Laudos</a>
+    <a href="admin.html" class="navlink">Usuários</a>
+    <span id="contratoChip" class="chip"></span>
     <span class="grow"></span>
     <span class="conn"><span class="dot" id="connDot"></span><span id="connLabel">offline</span></span>
     <button class="btn" id="btnConn">Conexão</button>
@@ -403,6 +410,7 @@ function verificarConformidade(ficha,o={}){const res={__memoria__:o.memoriaCalcu
 
 <script>
 "use strict";
+const QS=new URLSearchParams(location.search); const CONTRATO=QS.get("contrato")||""; const CONTRATO_NOME=QS.get("numero")||"";
 const $=id=>document.getElementById(id);
 const brl=v=>Number.isFinite(v)?"R$ "+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
 const num=v=>{const n=parseFloat(String(v).replace(/\./g,"").replace(",","."));return Number.isFinite(n)?n:(parseFloat(v)||0);};
@@ -469,7 +477,8 @@ function coletarBem(){
     vn:num($("f_vn").value), vrFrac:num($("f_vr").value)/100,
     idadeMeses:num($("f_idade").value), Tmeses:num($("f_T").value),
     params:{}, adotado:{ criterio:$("f_adotado").value, arredondar:$("f_arred").checked },
-    nome:$("f_nome").value, area:$("f_area").value };
+    nome:$("f_nome").value, area:$("f_area").value, setor:$("f_setor").value, local:$("f_local").value,
+    contrato:CONTRATO||undefined };
   CAT.forEach(m=>{
     const p={ incluido: $("inc_"+m.id)?.checked !== false };
     m.parametros.forEach(par=>{
@@ -530,10 +539,10 @@ async function conectar(){ API.base=$("apiBase").value.trim(); API.token=$("apiT
   try{ const ref=await apiFetch("/api/salve/referencias"); if(ref?.metodos?.length){ CAT=ref.metodos; buildMethodCards(); }
     if(ref?.finalidades) fill($("f_finalidade"),ref.finalidades);
     setConn(true); $("connMsg").textContent="referências carregadas do servidor"; try{localStorage.setItem("salve_api",JSON.stringify(API));}catch(e){}
-    exemplo(); toast("Conectado ao servidor"); }
+    toast("Conectado ao servidor"); }
   catch(e){ setConn(false,"falha"); $("connMsg").textContent="erro: "+e.message; }
 }
-async function salvar(){ const {bem}=render(); bem.laudo=laudoFields(); try{ await apiFetch("/api/salve/bens",{method:"POST",body:JSON.stringify({record:bem})}); $("f_id").value=bem.id; toast("Bem salvo ("+bem.id+")"); }catch(e){ toast("Erro ao salvar: "+e.message); } }
+async function salvar(){ const {bem}=render(); bem.laudo=laudoFields(); try{ await apiFetch("/api/salve/bens",{method:"POST",body:JSON.stringify({record:bem})}); $("f_id").value=bem.id; toast("Bem salvo ("+bem.id+")"); if(CONTRATO){ setTimeout(()=>location.href="contratos.html?c="+encodeURIComponent(CONTRATO),700); } }catch(e){ toast("Erro ao salvar: "+e.message); } }
 async function calcularServidor(){ const {bem}=render(); const id=$("f_id").value||bem.id;
   try{ await apiFetch("/api/salve/bens",{method:"POST",body:JSON.stringify({record:{...bem,id}})});
     const d=await apiFetch(`/api/salve/bens/${id}/calcular`,{method:"POST",body:JSON.stringify({avaliacao:bem})});
@@ -596,6 +605,8 @@ function exemplo(){
 
 build();
 exemplo();
+if(CONTRATO){ const c=$("contratoChip"); if(c){ c.style.display="inline-flex"; c.textContent="Contrato "+(CONTRATO_NOME||CONTRATO); } }
+(async()=>{ try{ const st=JSON.parse(localStorage.getItem("salve_api")||"null"); if(st?.base&&st?.token){ $("apiBase").value=st.base; $("apiToken").value=st.token; await conectar(); } }catch(e){} })();
 </script>
 </body>
 </html>

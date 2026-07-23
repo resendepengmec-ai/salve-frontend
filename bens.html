@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SALVe — Laudos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>window.SALVE_API = "";</script>
+<style>
+  :root{--paper:#EEF0ED;--sheet:#FCFCFB;--ink:#1B2021;--muted:#6B7476;--steel:#2C383D;--hair:#D9DEDA;--hair2:#E7EAE6;--value:#0B6E4F;--value-bg:#E7F1EC;--blue:#16506B;--blue-bg:#E5EEF2;--warn:#9A3B24;--warn-bg:#f3e2dd;}
+  *{box-sizing:border-box}html,body{margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px}
+  .mono{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+  .nav{background:var(--steel);color:#fff;display:flex;align-items:center;gap:6px;padding:11px 22px;flex-wrap:wrap;position:sticky;top:0;z-index:10}
+  .nav .brand{font-family:"IBM Plex Sans Condensed";font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:16px;margin-right:14px}
+  .nav .brand b{color:#7fd0ae}
+  .nav a{color:#c9d2d4;text-decoration:none;font-size:13px;font-weight:600;padding:6px 11px;border-radius:7px}
+  .nav a:hover{background:rgba(255,255,255,.08);color:#fff}.nav a.active{background:rgba(255,255,255,.14);color:#fff}
+  .nav .grow{flex:1}.nav .me{font-size:12px;color:#aeb9bc;display:flex;gap:8px;align-items:center}.nav .me b{color:#fff}
+  .nav .role{font-size:10px;text-transform:uppercase;letter-spacing:.05em;background:rgba(255,255,255,.14);padding:2px 7px;border-radius:20px}
+  .nav .out{background:none;border:1px solid rgba(255,255,255,.25);color:#fff;font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:7px;cursor:pointer}
+  .wrap{max-width:1040px;margin:22px auto 60px;padding:0 20px}
+  .tabs{display:flex;gap:6px;margin-bottom:16px}
+  .tab{font:inherit;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--hair);background:var(--sheet);color:var(--muted);padding:8px 15px;border-radius:8px}
+  .tab.on{background:var(--steel);border-color:var(--steel);color:#fff}
+  .summary{display:flex;gap:22px;margin-bottom:16px;flex-wrap:wrap}
+  .summary .s{background:var(--sheet);border:1px solid var(--hair);border-radius:10px;padding:12px 18px;min-width:150px}
+  .summary .s .n{font-family:"IBM Plex Mono";font-weight:600;font-size:22px;color:var(--steel)}
+  .summary .s .n.val{color:var(--value)}
+  .summary .s .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:2px}
+  .card{background:var(--sheet);border:1px solid var(--hair);border-radius:11px;overflow:hidden;box-shadow:0 1px 2px rgba(27,32,33,.05)}
+  table{width:100%;border-collapse:collapse}
+  th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:10px 18px;border-bottom:1px solid var(--hair2);font-weight:600}
+  th.r,td.r{text-align:right}
+  td{padding:11px 18px;border-bottom:1px solid var(--hair2);font-size:13px;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  tbody.click tr{cursor:pointer}tbody.click tr:hover{background:#f4f6f3}
+  .pill{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:20px;font-weight:600}
+  .pill.ok{background:var(--value-bg);color:var(--value)}.pill.no{background:var(--warn-bg);color:var(--warn)}
+  .val{font-family:"IBM Plex Mono";font-weight:600;color:var(--value)}
+  .barcell{min-width:160px}.bar{height:7px;background:#eef0ed;border-radius:4px;overflow:hidden;border:1px solid var(--hair2)}
+  .bar>i{display:block;height:100%;background:var(--blue)}
+  .cut{background:var(--value-bg)!important}
+  .empty{padding:30px 18px;color:var(--muted);text-align:center}
+  .empty a{color:var(--blue)}
+  /* modal */
+  .ov{position:fixed;inset:0;background:rgba(27,32,33,.5);display:none;align-items:center;justify-content:center;padding:20px;z-index:40}.ov.show{display:flex}
+  .modal{max-width:620px;width:100%;background:var(--sheet);border-radius:13px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:90vh;display:flex;flex-direction:column}
+  .modal .mh{background:var(--steel);color:#fff;padding:16px 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .modal .mh h2{margin:0;font-family:"IBM Plex Sans Condensed";font-size:16px}.modal .mh .sub{font-size:11.5px;color:#aeb9bc;margin-top:2px}
+  .modal .x{background:none;border:0;color:#cdd5d7;font-size:22px;cursor:pointer;line-height:1}
+  .modal .mb{padding:18px 22px;overflow:auto}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;margin-bottom:16px}
+  .kv .i .k{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}.kv .i .v{font-size:13.5px;font-weight:500}
+  .mline{display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid var(--hair2);font-size:13px}.mline .mm{font-family:"IBM Plex Mono";font-size:10.5px;color:var(--muted)}
+  .mline .mv{font-family:"IBM Plex Mono";font-weight:600}.mline.off{opacity:.5}
+  .adot{display:flex;justify-content:space-between;align-items:baseline;margin-top:14px;padding-top:12px;border-top:2px solid var(--steel)}
+  .adot .big{font-family:"IBM Plex Mono";font-weight:600;font-size:26px;color:var(--value)}
+  .mact{display:flex;gap:9px;margin-top:18px;flex-wrap:wrap}
+  .btn{font:inherit;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--steel);background:var(--steel);color:#fff;border-radius:8px;padding:8px 15px;text-decoration:none;display:inline-block}
+  .btn:hover{background:#1f2a2e}.btn.ghost{background:transparent;color:var(--steel);border-color:var(--hair)}.btn.ghost:hover{background:#f4f6f3}
+  .btn.danger{border-color:var(--warn);background:transparent;color:var(--warn)}.btn.danger:hover{background:var(--warn-bg)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--steel);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60}.toast.show{opacity:1}
+  .gate{max-width:460px;margin:80px auto;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="nav">
+    <span class="brand">SAL<b>Ve</b></span>
+    <a href="contratos.html">Contratos</a>
+    <a href="bens.html" class="active">Laudos</a>
+    <a href="admin.html">Usuários</a>
+    <span class="grow"></span>
+    <span class="me" id="me"></span>
+    <button class="out" id="btnOut">Sair</button>
+  </div>
+
+  <div class="wrap" id="wrap" style="display:none">
+    <div class="tabs">
+      <button class="tab on" id="tabList">Laudos</button>
+      <button class="tab" id="tabRank">Ranking 80/20</button>
+      <span style="flex:1"></span>
+      <a class="btn ghost" href="ficha-avaliacao.html">+ Nova avaliação</a>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div id="viewList" class="card">
+      <table><thead><tr><th>Bem</th><th>Localização</th><th>Conformidade</th><th class="r">Valor adotado</th><th class="r">Atualizado</th></tr></thead>
+      <tbody class="click" id="listBody"></tbody></table>
+    </div>
+
+    <div id="viewRank" class="card" style="display:none">
+      <table><thead><tr><th>#</th><th>Bem</th><th class="r">Valor adotado</th><th class="barcell">% acumulado</th></tr></thead>
+      <tbody id="rankBody"></tbody></table>
+    </div>
+  </div>
+
+  <div class="gate" id="gate" style="display:none"></div>
+
+  <div class="ov" id="ov"><div class="modal">
+    <div class="mh"><div><h2 id="mNome">—</h2><div class="sub" id="mSub"></div></div><button class="x" id="mX">&times;</button></div>
+    <div class="mb" id="mBody"></div>
+  </div></div>
+  <div class="toast" id="toast"></div>
+
+<!-- motor + conformidade (iguais ao backend) -->
+<script>
+function universais(b){const vn=+b.vn||0,vrFrac=+b.vrFrac||0,idadeMeses=+b.idadeMeses||0,Tmeses=+b.Tmeses||0;return{vn,vrFrac,vrAbs:vn*vrFrac,idadeMeses,Tmeses,tAnos:idadeMeses/12,tanos:Tmeses/12};}
+function evalExpr(s,vars){let i=0;const F={exp:Math.exp,ln:Math.log,log:Math.log10,log10:Math.log10,sqrt:Math.sqrt,abs:Math.abs,pow:Math.pow,min:Math.min,max:Math.max};const ws=()=>{while(i<s.length&&/\s/.test(s[i]))i++;};function ex(){let v=tm();ws();while(s[i]==='+'||s[i]==='-'){const o=s[i++];const r=tm();v=o==='+'?v+r:v-r;ws();}return v;}function tm(){let v=fa();ws();while(s[i]==='*'||s[i]==='/'){const o=s[i++];const r=fa();v=o==='*'?v*r:v/r;ws();}return v;}function fa(){let v=un();ws();if(s[i]==='^'){i++;return Math.pow(v,fa());}return v;}function un(){ws();if(s[i]==='-'){i++;return -un();}if(s[i]==='+'){i++;return un();}return pr();}function pr(){ws();if(s[i]==='('){i++;const v=ex();ws();if(s[i++]!==')')throw 0;return v;}let m=/^[0-9]*\.?[0-9]+([eE][+-]?[0-9]+)?/.exec(s.slice(i));if(m){i+=m[0].length;return parseFloat(m[0]);}let id=/^[A-Za-z_][A-Za-z0-9_]*/.exec(s.slice(i));if(id){i+=id[0].length;ws();if(s[i]==='('){i++;const a=[];ws();if(s[i]!==')'){a.push(ex());ws();while(s[i]===','){i++;a.push(ex());ws();}}if(s[i++]!==')')throw 0;if(!Object.prototype.hasOwnProperty.call(F,id[0]))throw 0;return F[id[0]](...a);}if(!Object.prototype.hasOwnProperty.call(vars,id[0]))throw new Error('var');return vars[id[0]];}throw 0;}const r=ex();ws();if(i<s.length)throw 0;return r;}
+const METODOS={
+ caires:{nome:'De Caíres',calcular(u,p){const mu=+p.mu||0,tau=+p.tau||0;const af=0.853081710*Math.exp(0.067348748*tau-0.041679277*mu-0.001022860*mu*tau);const dx=1.347961431/(1+0.347961431*Math.exp(3.579760093*af*(u.idadeMeses/u.Tmeses)));return{va:((1-u.vrFrac)*dx+u.vrFrac)*u.vn,memoria:{af:+af.toFixed(6),dx:+dx.toFixed(6)}};}},
+ 'ross-heidecke':{nome:'Ross-Heidecke',calcular(u,p){const h=+p.h||0;const alpha=u.tanos?0.5*(u.tAnos/u.tanos+(u.tAnos*u.tAnos)/(u.tanos*u.tanos)):0;const dx=(alpha+(1-alpha)*h)*(1-u.vrFrac);return{va:u.vn*(1-dx),memoria:{alpha:+alpha.toFixed(4)}};}},
+ criticidade:{nome:'Criticidade',calcular(u,p){const C=typeof p.C==='number'?p.C:Object.values(p.criticidade||{}).reduce((s,v)=>s+(+v||0),0);return{va:u.vn/Math.pow(1+C/100,u.tAnos),memoria:{C}};}},
+ cole:{nome:'De Cole',calcular(u){const dp=(2*(u.vn-u.vrAbs))/(u.tanos*(u.tanos+1));const da=(u.tAnos*(2*u.tanos-u.tAnos+1)*dp)/2;return{va:u.vn-da,memoria:{da:+da.toFixed(2)}};}},
+ economica:{nome:'Depreciação Econômica',calcular(u,p){const alpha=u.tanos?0.5*(u.tAnos/u.tanos+(u.tAnos*u.tAnos)/(u.tanos*u.tanos)):0;const vars={Vn:u.vn,Vr:u.vrFrac,VrAbs:u.vrAbs,t:u.tAnos,T:u.tanos,tm:u.idadeMeses,Tm:u.Tmeses,alpha};try{return{va:evalExpr(String(p.formula||'Vn*(1-t/T)'),vars),memoria:{}};}catch(e){return{va:null,erro:'fórmula'};}}},
+};
+const ORDEM=['caires','ross-heidecke','criticidade','cole','economica'];
+function avaliarBem(bem){const u=universais(bem);const params=bem.params||{};const resultados=ORDEM.map(id=>{const m=METODOS[id];try{const r=m.calcular(u,params[id]||{});return{metodo:m.nome,id,va:r.va,memoria:r.memoria,incluido:params[id]?.incluido!==false};}catch(e){return{metodo:m.nome,id,va:null,incluido:false};}});const incl=resultados.filter(r=>r.incluido&&Number.isFinite(r.va)).map(r=>r.va);const media=incl.length?incl.reduce((s,v)=>s+v,0)/incl.length:NaN;const desvio=incl.length?Math.sqrt(incl.reduce((s,v)=>s+(v-media)**2,0)/incl.length):NaN;const criterio=bem.adotado?.criterio||'media';let valorAdotado=media;if(criterio!=='media'){const r=resultados.find(x=>x.id===criterio);valorAdotado=r&&Number.isFinite(r.va)?r.va:NaN;}if(bem.adotado?.arredondar&&Number.isFinite(valorAdotado)){const p=valorAdotado*.01;valorAdotado=p?Math.round(valorAdotado/p)*p:valorAdotado;}return{resultados,media,desvio,valorAdotado};}
+const REQ=[['a',['f_cliente']],['b',['f_tipovalor']],['c',['f_finalidade']],['d',['f_nome','f_descricao']],['e',['f_docs']],['f',['f_pressupostos']],['g',['f_vn','f_T']],['h',['__mem__']],['i',['f_metodologia','f_metodojustif']],['j',['f_fundamentacao']],['k',['__val__','f_dataref']],['l',['f_aval','f_crea']],['m',['f_localelab','f_dataelab']],['n',['__p5__']]];
+function conforme(laudo,o){const res={__mem__:!!o.mem,__val__:Number.isFinite(o.val),__p5__:true};laudo=laudo||{};return REQ.every(([,cs])=>cs.every(c=>c in res?res[c]:(laudo[c]!=null&&String(laudo[c]).trim()!=="")));}
+</script>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const store=(()=>{try{return JSON.parse(localStorage.getItem("salve_api")||"null")}catch(e){return null}})();
+const BASE=((window.SALVE_API||"")||store?.base||"").replace(/\/$/,"");
+const TOKEN=store?.token||"";
+let me=null, BENS=[];
+const brl=v=>Number.isFinite(v)?"R$ "+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
+const fmt=ms=>{if(!ms)return "—";try{return new Date(ms).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"})}catch(e){return "—"}};
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2400);}
+function gate(h){$("wrap").style.display="none";const g=$("gate");g.style.display="block";g.innerHTML=h;}
+if(!BASE||!TOKEN) location.href="index.html";
+
+async function api(path,opts={}){const r=await fetch(BASE+path,{...opts,headers:{"Content-Type":"application/json","Authorization":"Bearer "+TOKEN,...(opts.headers||{})}});const j=await r.json().catch(()=>({}));if(r.status===401){try{localStorage.removeItem("salve_api")}catch(e){};location.href="index.html";throw new Error("sessão");}if(!r.ok||j.ok===false)throw new Error(j.error||("HTTP "+r.status));return j.data;}
+$("btnOut").onclick=async()=>{try{await api("/api/auth/logout",{method:"POST"})}catch(e){};try{localStorage.removeItem("salve_api")}catch(e){};location.href="index.html";};
+
+// calcula valor + conformidade do registro (usa o salvo, senão recalcula)
+function resumo(rec){
+  let r=rec.resultados, val=rec.valorAdotado;
+  if(!Number.isFinite(val)){ const c=avaliarBem(rec); r=c; val=c.valorAdotado; }
+  const ok=conforme(rec.laudo,{mem:!!(r&&r.resultados),val});
+  return {val, resultados:r, conforme:ok};
+}
+
+async function carregar(){
+  try{ me=await api("/api/auth/me"); }catch(e){ gate("Não foi possível validar a sessão."); return; }
+  $("me").innerHTML=`<b>${me.name||me.email}</b><span class="role">${me.role}</span>`;
+  $("wrap").style.display="block";
+  try{ BENS=await api("/api/salve/bens"); }catch(e){ toast("Erro ao carregar: "+e.message); BENS=[]; }
+  BENS=BENS.map(b=>({...b, _r:resumo(b)}));
+  renderSummary(); renderList(); renderRank();
+}
+
+function renderSummary(){
+  const avaliados=BENS.filter(b=>Number.isFinite(b._r.val));
+  const total=avaliados.reduce((s,b)=>s+b._r.val,0);
+  const conf=BENS.filter(b=>b._r.conforme).length;
+  $("summary").innerHTML=`
+    <div class="s"><div class="n">${BENS.length}</div><div class="k">Bens cadastrados</div></div>
+    <div class="s"><div class="n val">${brl(total)}</div><div class="k">Valor total avaliado</div></div>
+    <div class="s"><div class="n">${conf}/${BENS.length}</div><div class="k">Laudos conformes</div></div>`;
+}
+
+function renderList(){
+  const b=$("listBody");
+  if(!BENS.length){ b.innerHTML=`<tr><td colspan="5" class="empty">Nenhum bem salvo ainda. <a href="ficha-avaliacao.html">Criar a primeira avaliação →</a></td></tr>`; return; }
+  b.innerHTML=BENS.map(x=>`<tr data-id="${x.id}">
+    <td><b>${x.nome||"(sem nome)"}</b><br><span class="mono" style="font-size:11px;color:var(--muted)">${x.id}</span></td>
+    <td>${[x.area,x.setor,x.local].filter(Boolean).join(" · ")||"—"}</td>
+    <td>${x._r.conforme?'<span class="pill ok">conforme</span>':'<span class="pill no">pendente</span>'}</td>
+    <td class="r val">${brl(x._r.val)}</td>
+    <td class="r mono" style="color:var(--muted)">${fmt(x._updatedAt)}</td>
+  </tr>`).join("");
+  b.querySelectorAll("tr[data-id]").forEach(tr=>tr.onclick=()=>abrir(tr.dataset.id));
+}
+
+function renderRank(){
+  const arr=BENS.filter(b=>Number.isFinite(b._r.val)).sort((a,b)=>b._r.val-a._r.val);
+  const total=arr.reduce((s,b)=>s+b._r.val,0)||1; let acc=0, hitCut=false;
+  const body=$("rankBody");
+  if(!arr.length){ body.innerHTML=`<tr><td colspan="4" class="empty">Sem valores para ranquear ainda.</td></tr>`; return; }
+  body.innerHTML=arr.map((x,i)=>{ acc+=x._r.val; const pct=100*acc/total; const cut=!hitCut&&pct>=80; if(cut)hitCut=true;
+    return `<tr class="${cut?'cut':''}"><td class="mono">${i+1}</td><td><b>${x.nome||x.id}</b></td>
+      <td class="r val">${brl(x._r.val)}</td>
+      <td class="barcell"><div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div><span class="mono" style="font-size:11px;color:var(--muted)">${pct.toFixed(1)}%${cut?' · corte 80%':''}</span></td></tr>`;
+  }).join("");
+}
+
+async function abrir(id){
+  const rec=BENS.find(b=>b.id===id); if(!rec) return;
+  const R=rec._r.resultados; const res=R&&R.resultados?R.resultados:[];
+  $("mNome").textContent=rec.nome||"(sem nome)";
+  $("mSub").textContent=`${rec.id} · ${[rec.area,rec.setor,rec.local].filter(Boolean).join(" · ")||"sem localização"}`;
+  const podeExcluir=["admin","diretor","gestor"].includes(me.role);
+  const kv=[["Valor novo",brl(+rec.vn||0)],["Valor residual",((+rec.vrFrac||0)*100).toFixed(0)+"%"],["Idade",(+rec.idadeMeses||0)+" meses"],["Vida útil",(+rec.Tmeses||0)+" meses"]];
+  $("mBody").innerHTML=`
+    <div class="kv">${kv.map(([k,v])=>`<div class="i"><div class="k">${k}</div><div class="v mono">${v}</div></div>`).join("")}</div>
+    ${res.map(m=>`<div class="mline ${m.incluido&&Number.isFinite(m.va)?'':'off'}"><span>${m.metodo} ${m.memoria?`<span class="mm">${Object.entries(m.memoria).map(([k,v])=>k+'='+v).join(' ')}</span>`:''}</span><span class="mv">${Number.isFinite(m.va)?brl(m.va):'—'}</span></div>`).join("")}
+    <div class="adot"><div><div class="k" style="font-size:10px;text-transform:uppercase;color:var(--muted)">Valor adotado</div>
+      <div style="font-size:12px;color:var(--muted)">${rec._r.conforme?'laudo conforme (item 9)':'laudo pendente'}</div></div>
+      <div class="big">${brl(rec._r.val)}</div></div>
+    <div class="mact">
+      <a class="btn ghost" href="ficha-avaliacao.html">Nova avaliação</a>
+      ${podeExcluir?`<button class="btn danger" id="mDel">Excluir</button>`:""}
+    </div>`;
+  if(podeExcluir) $("mDel").onclick=async()=>{ if(!confirm("Excluir este bem?"))return; try{ await api("/api/salve/bens/"+encodeURIComponent(id),{method:"DELETE"}); toast("Excluído"); $("ov").classList.remove("show"); carregar(); }catch(e){toast("Erro: "+e.message);} };
+  $("ov").classList.add("show");
+}
+
+$("mX").onclick=()=>$("ov").classList.remove("show");
+$("ov").onclick=e=>{if(e.target===$("ov"))$("ov").classList.remove("show");};
+document.addEventListener("keydown",e=>{if(e.key==="Escape")$("ov").classList.remove("show");});
+$("tabList").onclick=()=>{$("tabList").classList.add("on");$("tabRank").classList.remove("on");$("viewList").style.display="";$("viewRank").style.display="none";};
+$("tabRank").onclick=()=>{$("tabRank").classList.add("on");$("tabList").classList.remove("on");$("viewRank").style.display="";$("viewList").style.display="none";};
+
+carregar();
+</script>
+</body>
+</html>
