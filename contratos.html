@@ -29,6 +29,8 @@
   .fld input,.fld select,.fld textarea{font:inherit;font-size:13px;border:1px solid var(--hair);border-radius:7px;padding:7px 9px;background:#fff;width:100%}
   .fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg)}
   .fld textarea{resize:vertical;min-height:52px;line-height:1.5}
+  #acCampo{display:block}
+  #acCampo select,#acCampo input{font:inherit;font-size:13px;border:1px solid var(--hair);border-radius:7px;padding:7px 9px;background:#fff;width:100%}
   .fld.num{width:130px}.fld.cli{flex:1;min-width:160px}.fld.desc{flex:2;min-width:180px}
   .btn{font:inherit;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--steel);background:var(--steel);color:#fff;border-radius:8px;padding:8px 15px;text-decoration:none;display:inline-block}
   .btn:hover{background:#1f2a2e}.btn.ghost{background:transparent;color:var(--steel);border-color:var(--hair)}.btn.ghost:hover{background:#f4f6f3}
@@ -92,6 +94,7 @@
       <div class="dtabs">
         <button class="dtab on" id="tabDados">Dados do contrato</button>
         <button class="dtab" id="tabAcervo">Acervo de laudos</button>
+        <button class="dtab" id="tabAcessos">Acessos</button>
       </div>
 
       <!-- ABA 1: DADOS -->
@@ -141,6 +144,19 @@
         </div>
         <div style="font-size:11.5px;color:var(--muted);padding:0 4px">O PDF de cada laudo é gerado a partir dos dados do equipamento e do contrato, e fica armazenado neste contrato.</div>
       </div>
+
+      <!-- ABA 3: ACESSOS -->
+      <div id="paneAcessos" style="display:none">
+        <div class="card">
+          <div class="ch"><h2>Quem tem acesso a este contrato</h2><span id="acHint" style="font-size:11.5px;color:var(--muted)"></span></div>
+          <div class="addrow" id="acAdd">
+            <div class="fld cli"><label>Usuário</label><span id="acCampo"><select id="acEmail"></select></span></div>
+            <button class="btn" id="btnConceder">Conceder acesso</button>
+          </div>
+          <table><thead><tr><th>Usuário</th><th>Vínculo</th><th></th></tr></thead><tbody id="acBody"></tbody></table>
+        </div>
+        <div style="font-size:11.5px;color:var(--muted);padding:0 4px">Quem recebe acesso enxerga o contrato, seus itens e o acervo de laudos, mas não pode conceder acesso nem excluir o contrato. O usuário também precisa estar autorizado a entrar no sistema (aba Usuários).</div>
+      </div>
     </div>
   </div>
 
@@ -167,7 +183,7 @@ const store=(()=>{try{return JSON.parse(localStorage.getItem("salve_api")||"null
 const BASE=((window.SALVE_API||"")||store?.base||"").replace(/\/$/,"");
 const TOKEN=store?.token||"";
 const QS=new URLSearchParams(location.search);
-let me=null, CONTRATOS=[], BENS=[], CURRENT=null, LAUDOS=[];
+let me=null, CONTRATOS=[], BENS=[], CURRENT=null, LAUDOS=[], ACESSOS={acessos:[],dono:null,podeGerir:false}, USERS=[];
 const brl=v=>Number.isFinite(v)?"R$ "+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
 const fmt=ms=>{if(!ms)return "—";try{return new Date(ms).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"})}catch(e){return "—"}};
 function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600);}
@@ -380,11 +396,61 @@ async function excluirLaudo(bemId){
 
 // abas do detalhe
 function aba(qual){
-  $("tabDados").classList.toggle("on",qual==="dados");$("tabAcervo").classList.toggle("on",qual==="acervo");
-  $("paneDados").style.display=qual==="dados"?"block":"none";$("paneAcervo").style.display=qual==="acervo"?"block":"none";
+  ["dados","acervo","acessos"].forEach(k=>{
+    const t=$("tab"+k[0].toUpperCase()+k.slice(1)), p=$("pane"+k[0].toUpperCase()+k.slice(1));
+    if(t)t.classList.toggle("on",qual===k); if(p)p.style.display=qual===k?"block":"none";
+  });
 }
 $("tabDados").onclick=()=>aba("dados");
 $("tabAcervo").onclick=()=>aba("acervo");
+$("tabAcessos").onclick=()=>{ aba("acessos"); carregarAcessos(); };
+
+// ---- acessos por contrato ----
+async function carregarAcessos(){
+  try{ ACESSOS=await api(`/api/salve/contratos/${encodeURIComponent(CURRENT.id)}/acessos`); }
+  catch(e){ toast("Erro: "+e.message); return; }
+  if(ACESSOS.podeGerir && !USERS.length){
+    try{ USERS=await api("/api/users"); }catch(e){ USERS=[]; }
+  }
+  renderAcessos();
+}
+function renderAcessos(){
+  const pode=ACESSOS.podeGerir;
+  $("acAdd").style.display=pode?"flex":"none";
+  $("acHint").textContent=pode?"você pode conceder e revogar":"somente o dono do contrato ou o admin podem alterar";
+  // opções: usuários que ainda não têm acesso e não são o dono
+  const jaTem=new Set([...(ACESSOS.acessos||[]),(ACESSOS.dono||"").toLowerCase()]);
+  const opts=USERS.filter(u=>u.email && !jaTem.has(String(u.email).toLowerCase()) && (u.active!==false&&u.active!==0));
+  // admin recebe a lista de usuários; o engenheiro dono digita o e-mail
+  const campo=$("acCampo");
+  if(USERS.length){
+    campo.innerHTML=`<select id="acEmail">`+(opts.length
+      ? opts.map(u=>`<option value="${u.email}">${(u.name?u.name+" — ":"")+u.email}</option>`).join("")
+      : `<option value="">(nenhum usuário disponível)</option>`)+`</select>`;
+  } else {
+    campo.innerHTML=`<input id="acEmail" placeholder="email@dominio.com" spellcheck="false">`;
+  }
+  const linhas=[];
+  if(ACESSOS.dono) linhas.push(`<tr><td class="mono">${ACESSOS.dono}</td><td><span class="pill ok">dono</span></td><td></td></tr>`);
+  (ACESSOS.acessos||[]).forEach(e=>{
+    const u=USERS.find(x=>String(x.email).toLowerCase()===e);
+    linhas.push(`<tr><td class="mono">${u&&u.name?u.name+" — "+e:e}</td><td><span class="pill pdf">acesso concedido</span></td>
+      <td class="r">${pode?`<button class="btn danger sm" data-rev="${encodeURIComponent(e)}">revogar</button>`:""}</td></tr>`);
+  });
+  $("acBody").innerHTML=linhas.join("") || `<tr><td colspan="3" class="empty">Somente o dono tem acesso.</td></tr>`;
+  $("acBody").querySelectorAll("[data-rev]").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Revogar o acesso deste usuário ao contrato?"))return;
+    try{ await api(`/api/salve/contratos/${encodeURIComponent(CURRENT.id)}/acessos/${b.dataset.rev}`,{method:"DELETE"}); toast("Acesso revogado"); carregarAcessos(); }
+    catch(e){ toast("Erro: "+e.message); }
+  });
+}
+$("btnConceder").onclick=async()=>{
+  const email=($("acEmail")?.value||"").trim();
+  if(!email.includes("@")){ toast("Informe um e-mail válido"); return; }
+  try{ await api(`/api/salve/contratos/${encodeURIComponent(CURRENT.id)}/acessos`,{method:"POST",body:JSON.stringify({email})});
+    toast("Acesso concedido"); carregarAcessos(); }
+  catch(e){ toast("Erro: "+e.message); }
+};
 
 $("btnSalvarC").onclick=async()=>{
   const record={...CURRENT, ...coletarForm()}; record.descricao=record.objeto;
