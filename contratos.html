@@ -288,15 +288,28 @@ function gerarPDF(bem){
   function ensure(h){ if(y+h>PH-MB){ doc.addPage(); y=MT; } }
   function par(txt,o){ o=o||{}; const size=o.size||12, bold=!!o.bold, align=o.align||"justify", gap=(o.gap==null?2:o.gap), indent=o.indent||0;
     doc.setFont("times",bold?"bold":"normal"); doc.setFontSize(size); doc.setTextColor(0);
-    const lines=doc.splitTextToSize(String(txt==null?"—":txt), TW-indent);
+    const w=TW-indent-0.5;   // folga p/ arredondamento (mantém a margem de 2 cm)
+    const lines=doc.splitTextToSize(String(txt==null?"—":txt), w);
     const h=lines.length*LH(size); ensure(h);
-    doc.text(lines, ML+indent, y, {align:(align==="justify"&&lines.length===1?"left":align), maxWidth:TW-indent});
+    if(align==="center"){
+      // jsPDF centraliza EM TORNO do x informado → usar o centro da mancha de texto
+      doc.text(lines, ML+TW/2, y, {align:"center"});
+    } else if(align==="justify" && lines.length>1){
+      // justifica todas menos a última linha (a última fica alinhada à esquerda)
+      const ult=lines.pop();
+      doc.text(lines, ML+indent, y, {align:"justify", maxWidth:w});
+      doc.text(ult, ML+indent, y+(lines.length)*LH(size));
+      lines.push(ult);
+    } else {
+      doc.text(lines, ML+indent, y);
+    }
     y+=h+gap;
   }
+  const dbr=v=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v||"")); return m?`${m[3]}/${m[2]}/${m[1]}`:(v||""); };
   function secao(t){ ensure(LH(12)+2); doc.setFont("times","bold");doc.setFontSize(12);doc.setTextColor(0);doc.text(t,ML,y); y+=LH(12)+1; }
   function campo(k,v){ doc.setFontSize(12); const kb=k+": ";
     doc.setFont("times","bold"); const kw=doc.getTextWidth(kb);
-    doc.setFont("times","normal"); const vlines=doc.splitTextToSize(String(v==null||v===""?"—":v), TW-kw);
+    doc.setFont("times","normal"); const vlines=doc.splitTextToSize(String(v==null||v===""?"—":v), TW-kw-0.5);
     const h=Math.max(1,vlines.length)*LH(12); ensure(h);
     doc.setFont("times","bold"); doc.text(kb,ML,y);
     doc.setFont("times","normal"); doc.text(vlines,ML+kw,y);
@@ -311,7 +324,7 @@ function gerarPDF(bem){
   campo("Contratante", c.cliente);
   campo("Finalidade da avaliação", c.finalidade||L.f_finalidade);
   campo("Objetivo (tipo de valor)", c.objetivo||L.f_tipovalor);
-  campo("Data de referência", c.dataReferencia||L.f_dataref);
+  campo("Data de referência", dbr(c.dataReferencia||L.f_dataref));
   y+=3;
 
   secao("2  Identificação e caracterização do bem");
@@ -355,7 +368,7 @@ function gerarPDF(bem){
   campo("Engenheiro", c.engenheiro||L.f_aval);
   campo("CREA", c.crea||L.f_crea);
   campo("Empresa", c.empresa);
-  campo("Local e data", [(c.cidadeUF||L.f_localelab||""),(L.f_dataelab||"")].filter(Boolean).join(", "));
+  campo("Local e data", [(c.cidadeUF||L.f_localelab||""),dbr(L.f_dataelab)].filter(Boolean).join(", "));
 
   y+=18; ensure(16);
   doc.setDrawColor(120); doc.line((PW-80)/2, y, (PW+80)/2, y); y+=5;
