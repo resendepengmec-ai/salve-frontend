@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>window.SALVE_API = "https://salve-backend.onrender.com";</script>
 <style>
   :root{
     --paper:#EEF0ED; --sheet:#FCFCFB; --ink:#1B2021; --muted:#6B7476;
@@ -606,7 +607,7 @@ function exemplo(){
 build();
 exemplo();
 if(CONTRATO){ const c=$("contratoChip"); if(c){ c.style.display="inline-flex"; c.textContent="Contrato "+(CONTRATO_NOME||CONTRATO); } }
-(async()=>{ try{ const st=JSON.parse(localStorage.getItem("salve_api")||"null"); if(st?.base&&st?.token){ $("apiBase").value=st.base; $("apiToken").value=st.token; await conectar(); } }catch(e){} })();
+(async()=>{ try{ const st=JSON.parse(localStorage.getItem("salve_api")||"null"); const base=(window.SALVE_API||"")||st?.base||""; if(base&&st?.token){ $("apiBase").value=base; $("apiToken").value=st.token; await conectar(); } }catch(e){} })();
 </script>
 </body>
 </html>

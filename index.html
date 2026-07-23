@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <!-- Configure aqui a URL do backend no Render (ou informe no painel do administrador) -->
-<script>window.SALVE_API = "";</script>
+<script>window.SALVE_API = "https://salve-backend.onrender.com";</script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root{--paper:#EEF0ED;--sheet:#FCFCFB;--ink:#1B2021;--muted:#6B7476;--steel:#2C383D;--hair:#D9DEDA;--value:#0B6E4F;--value-bg:#E7F1EC;--blue:#16506B;--blue-bg:#E5EEF2;--warn:#9A3B24;}
@@ -44,8 +44,10 @@
   .admin .go:hover{background:#1f2a2e}
 
   .foot{padding:0 28px 20px;text-align:center}
-  .foot .adminlink{font-size:11px;color:#aab2ac;cursor:pointer;letter-spacing:.03em;user-select:none;background:none;border:0;padding:6px}
-  .foot .adminlink:hover{color:var(--muted);text-decoration:underline}
+  /* acesso discreto: mesma cor do fundo; revela-se com duplo clique */
+  .foot .adminlink{font-size:11px;color:var(--sheet);cursor:default;letter-spacing:.03em;user-select:none;background:none;border:0;padding:6px;-webkit-tap-highlight-color:transparent}
+  .foot .adminlink:focus-visible{outline:1px dotted var(--hair);color:var(--muted)}
+  .foot .adminlink.revealed{color:var(--muted)}
 
   /* modal "saiba mais" */
   .ov{position:fixed;inset:0;background:rgba(27,32,33,.5);display:none;align-items:center;justify-content:center;padding:20px;z-index:40}
@@ -149,7 +151,7 @@ async function setupTokenClient(base, cid){
 // fluxo normal: busca o Client ID no servidor e habilita o botão do usuário
 async function iniciar(){
   const base=apiBase();
-  if(!base){ setStatus("informe a URL do servidor na configuração do administrador","err"); return; }
+  if(!base){ $("btnLabel").textContent="Entrar com Google"; setStatus("informe a URL do servidor na configuração do administrador","err"); return; }
   setStatus("conectando ao servidor…");
   try{
     const cfg=await jget(base+"/api/auth/config/public");
@@ -196,7 +198,7 @@ async function entrarComoAdmin(){
 // eventos
 $("btnGoogle").onclick=()=>{ if(tokenClient) tokenClient.requestAccessToken(); };
 $("btnAdmin").onclick=entrarComoAdmin;
-$("toggleAdmin").onclick=()=>{ const p=$("adminPanel"); p.classList.toggle("show"); if(p.classList.contains("show")){ if(!$("apiBase").value) $("apiBase").value=apiBase(); $("apiBase").focus(); } };
+$("toggleAdmin").ondblclick=()=>{ const p=$("adminPanel"), t=$("toggleAdmin"); p.classList.toggle("show"); t.classList.toggle("revealed",p.classList.contains("show")); if(p.classList.contains("show")){ if(!$("apiBase").value) $("apiBase").value=apiBase(); $("apiBase").focus(); } };
 $("btnSaiba").onclick=()=>$("ov").classList.add("show");
 $("btnFecha").onclick=()=>$("ov").classList.remove("show");
 $("ov").onclick=e=>{ if(e.target===$("ov")) $("ov").classList.remove("show"); };
