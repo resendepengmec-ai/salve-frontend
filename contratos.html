@@ -294,12 +294,13 @@ function renderAcervo(){
       <td><div class="acts">
         <button class="btn ghost sm" data-gen="${x.id}">${m?'Atualizar PDF':'Gerar PDF'}</button>
         ${m?`<button class="btn ghost sm" data-dl="${x.id}">Baixar</button>`:''}
-        ${m&&podeExcluir(x.id)?`<button class="btn danger sm" data-rm="${x.id}">✕</button>`:''}
+        <a class="btn ghost sm" href="ficha-avaliacao.html?contrato=${encodeURIComponent(CURRENT.id)}&id=${encodeURIComponent(x.id)}">Editar</a>
+        ${podeExcluir(x.id)?`<button class="btn danger sm" data-del="${x.id}">Excluir</button>`:''}
       </div></td></tr>`;
   }).join("");
   tb.querySelectorAll("[data-gen]").forEach(b=>b.onclick=()=>gerarEArmazenar(b.dataset.gen));
   tb.querySelectorAll("[data-dl]").forEach(b=>b.onclick=()=>baixar(b.dataset.dl));
-  tb.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>excluirLaudo(b.dataset.rm));
+  tb.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>excluirBem(b.dataset.del));
 }
 
 // ---- PDF ----
@@ -467,6 +468,16 @@ async function baixar(bemId){
     const bem=BENS.find(b=>b.id===bemId); const a=document.createElement("a");
     a.href=d.pdfBase64; a.download=`laudo-${(bem?.nome||bemId).replace(/[^\w\-]+/g,"_")}.pdf`; a.click(); }
   catch(e){ toast("Erro: "+e.message); }
+}
+async function excluirBem(bemId){
+  const bem=BENS.find(b=>b.id===bemId);
+  if(!confirm(`Excluir o bem "${bem?.nome||bemId}"?\nRemove também o laudo em PDF do acervo. A operação é assinada digitalmente e registrada.`)) return;
+  try{
+    await api("/api/salve/bens/"+encodeURIComponent(bemId),{method:"DELETE"});
+    BENS=BENS.filter(b=>b.id!==bemId);
+    LAUDOS=LAUDOS.filter(l=>l.bemId!==bemId);
+    renderAcervo(); toast("Bem excluído");
+  }catch(e){ toast("Erro: "+e.message); }
 }
 async function excluirLaudo(bemId){
   if(!confirm("Remover o PDF deste laudo do acervo?"))return;

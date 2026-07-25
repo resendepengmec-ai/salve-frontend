@@ -438,7 +438,7 @@ function verificarConformidade(ficha,o={}){const res={__memoria__:o.memoriaCalcu
 
 <script>
 "use strict";
-const QS=new URLSearchParams(location.search); const CONTRATO=QS.get("contrato")||""; const CONTRATO_NOME=QS.get("numero")||"";
+const QS=new URLSearchParams(location.search); const CONTRATO=QS.get("contrato")||""; const CONTRATO_NOME=QS.get("numero")||""; const EDITID=QS.get("id")||"";
 const $=id=>document.getElementById(id);
 const brl=v=>Number.isFinite(v)?"R$ "+v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
 const num=v=>{const n=parseFloat(String(v).replace(/\./g,"").replace(",","."));return Number.isFinite(n)?n:(parseFloat(v)||0);};
@@ -562,6 +562,26 @@ function render(){
 function setConn(on,label){ $("connDot").classList.toggle("on",on); $("connLabel").textContent=label||(on?"conectado":"offline");
   ["btnSalvar","btnCalcularServ","btnAssinar"].forEach(id=>$(id).disabled=!on); }
 async function apiFetch(path,opts={}){ const r=await fetch(API.base.replace(/\/$/,"")+path,{...opts,headers:{"Content-Type":"application/json","Authorization":"Bearer "+API.token,...(opts.headers||{})}}); const j=await r.json().catch(()=>({})); if(!r.ok||j.ok===false) throw new Error(j.error||("HTTP "+r.status)); return j.data; }
+function preencherBem(bem){
+  if(!bem) return;
+  $("f_id").value=bem.id||"";
+  const set=(id,v)=>{ const e=$(id); if(e&&v!=null) e.value=v; };
+  set("f_vn", bem.vn); set("f_vr", bem.vrFrac!=null?+(bem.vrFrac*100).toFixed(6):""); set("f_idade", bem.idadeMeses); set("f_T", bem.Tmeses);
+  set("f_nome", bem.nome); set("f_area", bem.area); set("f_setor", bem.setor); set("f_local", bem.local);
+  if(bem.adotado){ if($("f_adotado")) $("f_adotado").value=bem.adotado.criterio||"media"; if($("f_arred")) $("f_arred").checked=!!bem.adotado.arredondar; }
+  (CAT||[]).forEach(m=>{ const p=(bem.params&&bem.params[m.id])||{};
+    const inc=$("inc_"+m.id); if(inc) inc.checked = p.incluido!==false;
+    m.parametros.forEach(par=>{
+      if(par.tipo==="tabela"){ const el=$(`p_${m.id}_${par.chave}`); if(el&&p[par.chave]!=null) el.value=p[par.chave]; }
+      else if(par.tipo==="somatorio"){ const sc=p[par.chave]||{}; par.variaveis.forEach(v=>{ const el=$(`p_${m.id}_${v.chave}`); if(el&&sc[v.chave]!=null) el.value=sc[v.chave]; }); }
+      else if(par.tipo==="expressao"){ const el=$(`p_${m.id}_${par.chave}`); if(el&&p.formula!=null) el.value=p.formula; }
+    });
+  });
+  const L=bem.laudo||{};
+  ["f_cliente","f_tipovalor","f_finalidade","f_descricao","f_docs","f_pressupostos","f_metodologia","f_metodojustif","f_fundamentacao","f_dataref","f_localelab","f_dataelab","f_aval","f_crea"].forEach(id=>{ if(L[id]!=null&&$(id)) $(id).value=L[id]; });
+  try{ render(); }catch(e){}
+  toast("Bem carregado para edição ("+bem.id+")");
+}
 async function conectar(){ API.base=$("apiBase").value.trim(); API.token=$("apiToken").value.trim();
   if(!API.base||!API.token){ $("connMsg").textContent="informe URL e token"; return; }
   try{ const ref=await apiFetch("/api/salve/referencias"); if(ref?.metodos?.length){ CAT=ref.metodos; buildMethodCards(); }
@@ -634,7 +654,7 @@ function exemplo(){
 build();
 exemplo();
 if(CONTRATO){ const c=$("contratoChip"); if(c){ c.style.display="inline-flex"; c.textContent="Contrato "+(CONTRATO_NOME||CONTRATO); } }
-(async()=>{ try{ const st=JSON.parse(localStorage.getItem("salve_api")||"null"); const base=(window.SALVE_API||"")||st?.base||""; if(base&&st?.token){ $("apiBase").value=base; $("apiToken").value=st.token; await conectar(); } }catch(e){} })();
+(async()=>{ try{ const st=JSON.parse(localStorage.getItem("salve_api")||"null"); const base=(window.SALVE_API||"")||st?.base||""; if(base&&st?.token){ $("apiBase").value=base; $("apiToken").value=st.token; await conectar(); if(EDITID){ try{ const bem=await apiFetch("/api/salve/bens/"+encodeURIComponent(EDITID)); preencherBem(bem); }catch(e){ toast("Erro ao carregar bem: "+e.message); } } } }catch(e){} })();
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});}</script>
 </body>
