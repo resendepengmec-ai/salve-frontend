@@ -389,11 +389,13 @@ function renderLaudo(doc, bem, novaPagina){
     const n0=x=>Number(x).toLocaleString("pt-BR",{maximumFractionDigits:0});
     const eq=t=>{ doc.setFont("times","normal");doc.setFontSize(11);doc.setTextColor(0); const ls=doc.splitTextToSize(t,TW-0.5); const h=ls.length*LH(11); ensure(h); doc.text(ls,ML,y); y+=h+0.6; };
     const subm=t=>{ ensure(LH(11)+2); doc.setFont("times","bold");doc.setFontSize(11);doc.setTextColor(0); doc.text(t,ML,y); y+=LH(11)+0.6; };
+    const leg=t=>{ doc.setFont("times","italic");doc.setFontSize(10);doc.setTextColor(90); const ls=doc.splitTextToSize(t,TW-0.5); const h=ls.length*LH(10); ensure(h); doc.text(ls,ML,y); y+=h+0.6; doc.setTextColor(0); };
     const inc=id=>P[id]?.incluido!==false;
+    leg("Variáveis gerais: Vn = valor do bem novo; Vr = valor residual (fração); t = idade real; T = vida útil; Va = valor depreciado (atual)."); y+=1;
     if(inc("caires")){ const mu=+P.caires?.mu||0,tau=+P.caires?.tau||0;
       const af=0.853081710*Math.exp(0.067348748*tau-0.041679277*mu-0.001022860*mu*tau);
       const dx=1.347961431/(1+0.347961431*Math.exp(3.579760093*af*rt)); const va=((1-vr2)*dx+vr2)*vn2;
-      subm("De Caíres — µ = manutenção, tau = regime de trabalho");
+      subm("De Caíres"); leg("onde: µ = coeficiente de manutenção; tau = regime de trabalho; AF = fator de idade; Dx = coeficiente de depreciação.");
       eq("AF = 0,853082 · e^(0,067349·tau - 0,041679·mu - 0,001023·mu·tau)");
       eq("AF = 0,853082 · e^(0,067349·"+n0(tau)+" - 0,041679·"+n0(mu)+" - 0,001023·"+n0(mu*tau)+") = "+nf(af,6));
       eq("Dx = 1,347961 / [1 + 0,347961 · e^(3,579760·AF·t/T)]");
@@ -401,21 +403,21 @@ function renderLaudo(doc, bem, novaPagina){
       eq("Va = [(1 - Vr)·Dx + Vr]·Vn = [(1 - "+nf(vr2,2)+")·"+nf(dx,6)+" + "+nf(vr2,2)+"]·"+brl(vn2)+" = "+brl(va)); y+=1.5; }
     if(inc("ross-heidecke")){ const h=+(P["ross-heidecke"]&&P["ross-heidecke"].h)||0; const al=Ta?0.5*(ta/Ta+(ta*ta)/(Ta*Ta)):0;
       const dx=(al+(1-al)*h)*(1-vr2); const va=vn2*(1-dx);
-      subm("Ross-Heidecke — h = estado de conservação, alpha = fator de Ross");
+      subm("Ross-Heidecke"); leg("onde: alpha = fator de Ross (idade/vida útil); h = estado de conservação (Heidecke); Dx = coeficiente de depreciação.");
       eq("alpha = 0,5·(t/T + t²/T²) = 0,5·("+n0(im)+"/"+n0(Tm)+" + "+n0(im)+"²/"+n0(Tm)+"²) = "+nf(al,4));
       eq("Dx = (alpha + (1 - alpha)·h)·(1 - Vr) = ("+nf(al,4)+" + "+nf(1-al,4)+"·"+nf(h,4)+")·"+nf(1-vr2,2)+" = "+nf(dx,6));
       eq("Va = Vn·(1 - Dx) = "+brl(vn2)+"·(1 - "+nf(dx,6)+") = "+brl(va)); y+=1.5; }
     if(inc("criticidade")){ const sc=(P.criticidade&&P.criticidade.criticidade)||{}; const C=(P.criticidade&&typeof P.criticidade.C==="number")?P.criticidade.C:Object.values(sc).reduce((s,v)=>s+(+v||0),0);
       const va=vn2/Math.pow(1+C/100,ta);
-      subm("Criticidade — C = índice de criticidade (t em anos)");
+      subm("Criticidade"); leg("onde: C = índice de criticidade (soma das variáveis); t em anos.");
       eq("C = soma das variáveis = "+n0(C));
       eq("Va = Vn / (1 + C/100)^t = "+brl(vn2)+" / (1 + "+n0(C)+"/100)^"+nf(ta,2)+" = "+brl(va)); y+=1.5; }
     if(inc("cole")){ const dp=(2*(vn2-vrAbs))/(Ta*(Ta+1)); const da=(ta*(2*Ta-ta+1)*dp)/2; const va=vn2-da;
-      subm("De Cole — soma dos dígitos (t, T em anos)");
+      subm("De Cole"); leg("onde: Dp = depreciação por período; Da = depreciação acumulada; t e T em anos.");
       eq("Dp = 2·(Vn - Vr) / [T·(T+1)] = 2·("+brl(vn2)+" - "+brl(vrAbs)+") / ["+nf(Ta,0)+"·("+nf(Ta,0)+"+1)] = "+brl(dp));
       eq("Da = t·(2T - t + 1)·Dp/2 = "+nf(ta,0)+"·(2·"+nf(Ta,0)+" - "+nf(ta,0)+" + 1)·"+brl(dp)+"/2 = "+brl(da));
       eq("Va = Vn - Da = "+brl(vn2)+" - "+brl(da)+" = "+brl(va)); y+=1.5; }
-    if(inc("economica")){ subm("Depreciação Econômica — fórmula editável");
+    if(inc("economica")){ subm("Depreciação Econômica"); leg("onde: fórmula definida pelo avaliador; t e T em anos; demais variáveis conforme atributos.");
       eq("Va = "+((P.economica&&P.economica.formula)||"Vn*(1 - t/T)")+"    (t, T em anos; Vn e Vr conforme atributos)"); y+=1.5; }
   }
   y+=2;
@@ -449,7 +451,8 @@ function novoDoc(){ const { jsPDF }=window.jspdf; return new jsPDF({unit:"mm",fo
 function gerarPDF(bem){ const doc=novoDoc(); renderLaudo(doc,bem,false); stampPages(doc); return doc.output("datauristring"); }
 function gerarPDFContrato(itens){ const doc=novoDoc(); itens.forEach((b,i)=>renderLaudo(doc,b,i>0)); stampPages(doc); return doc.output("datauristring"); }
 async function gerarEArmazenar(bemId){
-  const bem=BENS.find(b=>b.id===bemId); if(!bem)return;
+  let bem=BENS.find(b=>b.id===bemId); if(!bem)return;
+  try{ const fresh=await api("/api/salve/bens/"+encodeURIComponent(bemId)); if(fresh){ bem=fresh; const i=BENS.findIndex(b=>b.id===bemId); if(i>=0)BENS[i]=fresh; } }catch(e){}
   if(!window.jspdf){ toast("Biblioteca de PDF não carregou"); return; }
   toast("Gerando PDF…");
   let uri; try{ uri=gerarPDF(bem); }catch(e){ toast("Erro ao gerar PDF: "+e.message); return; }
@@ -482,10 +485,11 @@ function aba(qual){
 $("tabDados").onclick=()=>aba("dados");
 $("tabAcervo").onclick=()=>aba("acervo");
 $("tabAcessos").onclick=()=>{ aba("acessos"); carregarAcessos(); };
-$("dPdfContrato").onclick=(e)=>{ e.preventDefault();
+$("dPdfContrato").onclick=async (e)=>{ e.preventDefault();
+  if(!window.jspdf){ toast("Biblioteca de PDF não carregou"); return; }
+  try{ const fresh=await api("/api/salve/contratos/"+encodeURIComponent(CURRENT.id)+"/bens"); if(Array.isArray(fresh)) fresh.forEach(fb=>{ const i=BENS.findIndex(b=>b.id===fb.id); if(i>=0)BENS[i]=fb; else BENS.push(fb); }); }catch(e){}
   const itens=bensDoContrato(CURRENT.id);
   if(!itens.length){ toast("Este contrato não tem itens para gerar"); return; }
-  if(!window.jspdf){ toast("Biblioteca de PDF não carregou"); return; }
   toast("Gerando PDF do contrato…");
   let uri; try{ uri=gerarPDFContrato(itens); }catch(err){ toast("Erro: "+err.message); return; }
   const a=document.createElement("a"); a.href=uri;
