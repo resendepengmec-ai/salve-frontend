@@ -14,6 +14,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>window.SALVE_API = "https://salve-backend.onrender.com";</script>
 <style>
   :root{--paper:#EEF0ED;--sheet:#FCFCFB;--ink:#1B2021;--muted:#6B7476;--steel:#2C383D;--hair:#D9DEDA;--hair2:#E7EAE6;--value:#0B6E4F;--value-bg:#E7F1EC;--blue:#16506B;--blue-bg:#E5EEF2;--warn:#9A3B24;--warn-bg:#f3e2dd;}
@@ -231,9 +232,11 @@ async function abrir(id){
       <div style="font-size:12px;color:var(--muted)">${rec._r.conforme?'laudo conforme (item 9)':'laudo pendente'}</div></div>
       <div class="big">${brl(rec._r.val)}</div></div>
     <div class="mact">
+      <button class="btn" id="mPdf">Baixar laudo (PDF)</button>
       <a class="btn ghost" href="ficha-avaliacao.html">Nova avaliação</a>
       ${podeExcluir?`<button class="btn danger" id="mDel">Excluir</button>`:""}
     </div>`;
+  $("mPdf").onclick=()=>baixarLaudoBem(rec);
   if(podeExcluir) $("mDel").onclick=async()=>{ if(!confirm("Excluir este bem?"))return; try{ await api("/api/salve/bens/"+encodeURIComponent(id),{method:"DELETE"}); toast("Excluído"); $("ov").classList.remove("show"); carregar(); }catch(e){toast("Erro: "+e.message);} };
   $("ov").classList.add("show");
 }
@@ -244,6 +247,120 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")$("ov").classList.re
 $("tabList").onclick=()=>{$("tabList").classList.add("on");$("tabRank").classList.remove("on");$("viewList").style.display="";$("viewRank").style.display="none";};
 $("tabRank").onclick=()=>{$("tabRank").classList.add("on");$("tabList").classList.remove("on");$("viewRank").style.display="";$("viewList").style.display="none";};
 
+
+// ---- geração de laudo em PDF (ABNT NBR 14724) ----
+function renderLaudo(doc, bem, c, novaPagina){
+  c=c||{}; const L=bem.laudo||{}; const _R=avaliarBem(bem); const val=_R.valorAdotado;
+  // ABNT NBR 14724: A4; margens 3/3/2/2 cm (sup/esq/inf/dir); fonte serifada (Times) 12;
+  // entrelinha 1,5; texto justificado; número de página no canto superior direito.
+  const ML=30, MT=30, MR=20, MB=20, PW=210, PH=297, TW=PW-ML-MR;
+  const LH=s=>s*0.3527778*1.5;                 // altura de linha (mm) com entrelinha 1,5
+  doc.setLineHeightFactor(1.5);
+  let y = novaPagina ? (doc.addPage(), MT) : MT;
+  function ensure(h){ if(y+h>PH-MB){ doc.addPage(); y=MT; } }
+  function par(txt,o){ o=o||{}; const size=o.size||12, bold=!!o.bold, align=o.align||"justify", gap=(o.gap==null?2:o.gap), indent=o.indent||0;
+    doc.setFont("times",bold?"bold":"normal"); doc.setFontSize(size); doc.setTextColor(0);
+    const w=TW-indent-0.5;   // folga p/ arredondamento (mantém a margem de 2 cm)
+    const lines=doc.splitTextToSize(String(txt==null?"—":txt), w);
+    const h=lines.length*LH(size); ensure(h);
+    if(align==="center"){
+      // jsPDF centraliza EM TORNO do x informado → usar o centro da mancha de texto
+      doc.text(lines, ML+TW/2, y, {align:"center"});
+    } else if(align==="justify" && lines.length>1){
+      // justifica todas menos a última linha (a última fica alinhada à esquerda)
+      const ult=lines.pop();
+      doc.text(lines, ML+indent, y, {align:"justify", maxWidth:w});
+      doc.text(ult, ML+indent, y+(lines.length)*LH(size));
+      lines.push(ult);
+    } else {
+      doc.text(lines, ML+indent, y);
+    }
+    y+=h+gap;
+  }
+  const dbr=v=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v||"")); return m?`${m[3]}/${m[2]}/${m[1]}`:(v||""); };
+  function secao(t){ ensure(LH(12)+2); doc.setFont("times","bold");doc.setFontSize(12);doc.setTextColor(0);doc.text(t,ML,y); y+=LH(12)+1; }
+  function campo(k,v){ doc.setFontSize(12); const kb=k+": ";
+    doc.setFont("times","bold"); const kw=doc.getTextWidth(kb);
+    doc.setFont("times","normal"); const vlines=doc.splitTextToSize(String(v==null||v===""?"—":v), TW-kw-0.5);
+    const h=Math.max(1,vlines.length)*LH(12); ensure(h);
+    doc.setFont("times","bold"); doc.text(kb,ML,y);
+    doc.setFont("times","normal"); doc.text(vlines,ML+kw,y);
+    y+=h+1;
+  }
+
+  par("LAUDO DE AVALIAÇÃO",{size:12,bold:true,align:"center",gap:5});
+  par("Elaborado em conformidade com a ABNT NBR 14653-1 e ABNT NBR 14653-5 — método de custos com depreciação.",{size:10,align:"center",gap:7});
+
+  secao("1  Contrato");
+  campo("Número", c.numero);
+  campo("Contratante", c.cliente);
+  campo("Finalidade da avaliação", c.finalidade||L.f_finalidade);
+  campo("Objetivo (tipo de valor)", c.objetivo||L.f_tipovalor);
+  campo("Data de referência", dbr(c.dataReferencia||L.f_dataref));
+  y+=3;
+
+  secao("2  Identificação e caracterização do bem");
+  campo("Bem avaliado", bem.nome);
+  if(L.f_descricao) par(L.f_descricao,{gap:2});
+  campo("Localização", [bem.area,bem.setor,bem.local].filter(Boolean).join(" · "));
+  campo("Valor do bem novo", brl(+bem.vn||0));
+  campo("Valor residual", ((+bem.vrFrac||0)*100).toFixed(0)+"%");
+  campo("Idade real", (+bem.idadeMeses||0)+" meses");
+  campo("Vida útil", (+bem.Tmeses||0)+" meses");
+  y+=3;
+
+  secao("3  Metodologia e memória de cálculo");
+  par(L.f_metodojustif||"Adotado o método de custos com depreciação, conforme a ABNT NBR 14653-5, ante a escassez de dados de mercado para o bem usado.",{gap:3});
+  const body=_R.resultados.map(m=>[m.metodo, m.incluido&&Number.isFinite(m.va)?brl(m.va):"não incluído"]);
+  const rows=[["Método de depreciação","Valor"]].concat(body);
+  const col1=TW*0.68, col2=TW-col1, rh=8;
+  ensure(rows.length*rh+2);
+  let ty=y;
+  rows.forEach(function(r,ri){ const head=ri===0;
+    doc.setFont("times",head?"bold":"normal"); doc.setFontSize(11); doc.setTextColor(20);
+    if(head){ doc.setFillColor(238,238,238); doc.rect(ML,ty,TW,rh,"F"); }
+    doc.setDrawColor(120); doc.setLineWidth(0.1);
+    doc.rect(ML,ty,col1,rh); doc.rect(ML+col1,ty,col2,rh);
+    doc.text(String(r[0]),ML+2,ty+rh-3);
+    doc.text(String(r[1]),ML+col1+col2-2,ty+rh-3,{align:"right"});
+    ty+=rh;
+  });
+  y=ty+6;
+
+  secao("4  Resultado");
+  ensure(LH(12)); doc.setFont("times","bold");doc.setFontSize(12);doc.text("Valor adotado: "+brl(val),ML,y); y+=LH(12)+1;
+  campo("Critério de consolidação", (!bem.adotado||bem.adotado.criterio==="media"||!bem.adotado.criterio)?"média dos métodos":((METODOS[bem.adotado.criterio]&&METODOS[bem.adotado.criterio].nome)||bem.adotado.criterio));
+  campo("Conformidade (NBR 14653-1, item 9)", conforme(bem.laudo||{},{mem:true,val})?"laudo conforme":"pendente");
+  y+=2;
+
+  let n=5;
+  if(L.f_pressupostos){ secao(n+"  Pressupostos e condições limitantes"); par(L.f_pressupostos,{gap:3}); n++; }
+
+  secao(n+"  Responsável técnico");
+  campo("Engenheiro", c.engenheiro||L.f_aval);
+  campo("CREA", c.crea||L.f_crea);
+  campo("Empresa", c.empresa);
+  campo("Local e data", [(c.cidadeUF||L.f_localelab||""),dbr(L.f_dataelab)].filter(Boolean).join(", "));
+
+  y+=18; ensure(16);
+  doc.setDrawColor(120); doc.line((PW-80)/2, y, (PW+80)/2, y); y+=5;
+  doc.setFont("times","normal");doc.setFontSize(10);doc.setTextColor(0);
+  doc.text(String(c.engenheiro||L.f_aval||"Responsável técnico"),PW/2,y,{align:"center"}); y+=4.5;
+  doc.text("CREA "+(c.crea||L.f_crea||"—"),PW/2,y,{align:"center"});
+
+}
+function stampPages(doc){ const PW=210,MR=20; const total=doc.getNumberOfPages();
+  for(let i=1;i<=total;i++){ doc.setPage(i); doc.setFont("times","normal");doc.setFontSize(10);doc.setTextColor(0);
+    doc.text(String(i),PW-MR,20,{align:"right"}); } }
+function novoDoc(){ const { jsPDF }=window.jspdf; return new jsPDF({unit:"mm",format:"a4"}); }
+function gerarPDF(bem,c){ const doc=novoDoc(); renderLaudo(doc,bem,c,false); stampPages(doc); return doc.output("datauristring"); }
+
+async function baixarLaudoBem(bem){
+  if(!window.jspdf){ toast("Biblioteca de PDF não carregou"); return; }
+  let c={}; if(bem.contrato){ try{ c=await api("/api/salve/contratos/"+encodeURIComponent(bem.contrato)); }catch(e){} }
+  toast("Gerando PDF…"); let uri; try{ uri=gerarPDF(bem,c); }catch(e){ toast("Erro: "+e.message); return; }
+  const a=document.createElement("a"); a.href=uri; a.download="laudo-"+String(bem.nome||bem.id).replace(/[^\\w\\-]+/g,"_")+".pdf"; a.click();
+}
 carregar();
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});}</script>

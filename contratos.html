@@ -165,7 +165,7 @@
       <div id="paneAcervo" style="display:none">
         <div class="card">
           <div class="ch"><h2>Equipamentos e laudos <span id="dTot" class="val" style="margin-left:8px"></span></h2>
-            <a class="btn" id="dAdd" href="#">+ Adicionar item</a></div>
+            <span style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn ghost" id="dPdfContrato" href="#">Gerar PDF do contrato</a><a class="btn" id="dAdd" href="#">+ Adicionar item</a></span></div>
           <table><thead><tr><th>Bem</th><th>Conformidade</th><th class="r">Valor adotado</th><th>Laudo PDF</th><th></th></tr></thead>
           <tbody id="itensBody"></tbody></table>
         </div>
@@ -303,15 +303,14 @@ function renderAcervo(){
 }
 
 // ---- PDF ----
-function gerarPDF(bem){
+function renderLaudo(doc, bem, novaPagina){
   const c=CURRENT, L=bem.laudo||{}; const val=valorBem(bem);
-  const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:"mm",format:"a4"});
   // ABNT NBR 14724: A4; margens 3/3/2/2 cm (sup/esq/inf/dir); fonte serifada (Times) 12;
   // entrelinha 1,5; texto justificado; número de página no canto superior direito.
   const ML=30, MT=30, MR=20, MB=20, PW=210, PH=297, TW=PW-ML-MR;
   const LH=s=>s*0.3527778*1.5;                 // altura de linha (mm) com entrelinha 1,5
   doc.setLineHeightFactor(1.5);
-  let y=MT;
+  let y = novaPagina ? (doc.addPage(), MT) : MT;
   function ensure(h){ if(y+h>PH-MB){ doc.addPage(); y=MT; } }
   function par(txt,o){ o=o||{}; const size=o.size||12, bold=!!o.bold, align=o.align||"justify", gap=(o.gap==null?2:o.gap), indent=o.indent||0;
     doc.setFont("times",bold?"bold":"normal"); doc.setFontSize(size); doc.setTextColor(0);
@@ -403,13 +402,14 @@ function gerarPDF(bem){
   doc.text(String(c.engenheiro||L.f_aval||"Responsável técnico"),PW/2,y,{align:"center"}); y+=4.5;
   doc.text("CREA "+(c.crea||L.f_crea||"—"),PW/2,y,{align:"center"});
 
-  // numeração de páginas — canto superior direito (2 cm das bordas)
-  const total=doc.getNumberOfPages();
-  for(let i=1;i<=total;i++){ doc.setPage(i); doc.setFont("times","normal");doc.setFontSize(10);doc.setTextColor(0);
-    doc.text(String(i),PW-MR,20,{align:"right"}); }
-
-  return doc.output("datauristring");
 }
+
+function stampPages(doc){ const PW=210,MR=20; const total=doc.getNumberOfPages();
+  for(let i=1;i<=total;i++){ doc.setPage(i); doc.setFont("times","normal");doc.setFontSize(10);doc.setTextColor(0);
+    doc.text(String(i),PW-MR,20,{align:"right"}); } }
+function novoDoc(){ const { jsPDF }=window.jspdf; return new jsPDF({unit:"mm",format:"a4"}); }
+function gerarPDF(bem){ const doc=novoDoc(); renderLaudo(doc,bem,false); stampPages(doc); return doc.output("datauristring"); }
+function gerarPDFContrato(itens){ const doc=novoDoc(); itens.forEach((b,i)=>renderLaudo(doc,b,i>0)); stampPages(doc); return doc.output("datauristring"); }
 async function gerarEArmazenar(bemId){
   const bem=BENS.find(b=>b.id===bemId); if(!bem)return;
   if(!window.jspdf){ toast("Biblioteca de PDF não carregou"); return; }
@@ -444,6 +444,15 @@ function aba(qual){
 $("tabDados").onclick=()=>aba("dados");
 $("tabAcervo").onclick=()=>aba("acervo");
 $("tabAcessos").onclick=()=>{ aba("acessos"); carregarAcessos(); };
+$("dPdfContrato").onclick=(e)=>{ e.preventDefault();
+  const itens=bensDoContrato(CURRENT.id);
+  if(!itens.length){ toast("Este contrato não tem itens para gerar"); return; }
+  if(!window.jspdf){ toast("Biblioteca de PDF não carregou"); return; }
+  toast("Gerando PDF do contrato…");
+  let uri; try{ uri=gerarPDFContrato(itens); }catch(err){ toast("Erro: "+err.message); return; }
+  const a=document.createElement("a"); a.href=uri;
+  a.download="laudos-contrato-"+String(CURRENT.numero||CURRENT.id).replace(/[^\w\-]+/g,"_")+".pdf"; a.click();
+};
 
 // ---- acessos por contrato ----
 async function carregarAcessos(){
