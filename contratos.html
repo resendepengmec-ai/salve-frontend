@@ -381,13 +381,51 @@ function renderLaudo(doc, bem, novaPagina){
   });
   y=ty+6;
 
-  secao("4  Resultado");
+  secao("4  Memorial de cálculo");
+  {
+    const P=bem.params||{}, vn2=+bem.vn||0, vr2=+bem.vrFrac||0, im=+bem.idadeMeses||0, Tm=+bem.Tmeses||0;
+    const ta=im/12, Ta=Tm/12, vrAbs=vn2*vr2, rt=Tm?im/Tm:0;
+    const nf=(x,d)=>Number(x).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d});
+    const n0=x=>Number(x).toLocaleString("pt-BR",{maximumFractionDigits:0});
+    const eq=t=>{ doc.setFont("times","normal");doc.setFontSize(11);doc.setTextColor(0); const ls=doc.splitTextToSize(t,TW-0.5); const h=ls.length*LH(11); ensure(h); doc.text(ls,ML,y); y+=h+0.6; };
+    const subm=t=>{ ensure(LH(11)+2); doc.setFont("times","bold");doc.setFontSize(11);doc.setTextColor(0); doc.text(t,ML,y); y+=LH(11)+0.6; };
+    const inc=id=>P[id]?.incluido!==false;
+    if(inc("caires")){ const mu=+P.caires?.mu||0,tau=+P.caires?.tau||0;
+      const af=0.853081710*Math.exp(0.067348748*tau-0.041679277*mu-0.001022860*mu*tau);
+      const dx=1.347961431/(1+0.347961431*Math.exp(3.579760093*af*rt)); const va=((1-vr2)*dx+vr2)*vn2;
+      subm("De Caíres — µ = manutenção, tau = regime de trabalho");
+      eq("AF = 0,853082 · e^(0,067349·tau - 0,041679·mu - 0,001023·mu·tau)");
+      eq("AF = 0,853082 · e^(0,067349·"+n0(tau)+" - 0,041679·"+n0(mu)+" - 0,001023·"+n0(mu*tau)+") = "+nf(af,6));
+      eq("Dx = 1,347961 / [1 + 0,347961 · e^(3,579760·AF·t/T)]");
+      eq("Dx = 1,347961 / [1 + 0,347961 · e^(3,579760·"+nf(af,6)+"·"+n0(im)+"/"+n0(Tm)+")] = "+nf(dx,6));
+      eq("Va = [(1 - Vr)·Dx + Vr]·Vn = [(1 - "+nf(vr2,2)+")·"+nf(dx,6)+" + "+nf(vr2,2)+"]·"+brl(vn2)+" = "+brl(va)); y+=1.5; }
+    if(inc("ross-heidecke")){ const h=+(P["ross-heidecke"]&&P["ross-heidecke"].h)||0; const al=Ta?0.5*(ta/Ta+(ta*ta)/(Ta*Ta)):0;
+      const dx=(al+(1-al)*h)*(1-vr2); const va=vn2*(1-dx);
+      subm("Ross-Heidecke — h = estado de conservação, alpha = fator de Ross");
+      eq("alpha = 0,5·(t/T + t²/T²) = 0,5·("+n0(im)+"/"+n0(Tm)+" + "+n0(im)+"²/"+n0(Tm)+"²) = "+nf(al,4));
+      eq("Dx = (alpha + (1 - alpha)·h)·(1 - Vr) = ("+nf(al,4)+" + "+nf(1-al,4)+"·"+nf(h,4)+")·"+nf(1-vr2,2)+" = "+nf(dx,6));
+      eq("Va = Vn·(1 - Dx) = "+brl(vn2)+"·(1 - "+nf(dx,6)+") = "+brl(va)); y+=1.5; }
+    if(inc("criticidade")){ const sc=(P.criticidade&&P.criticidade.criticidade)||{}; const C=(P.criticidade&&typeof P.criticidade.C==="number")?P.criticidade.C:Object.values(sc).reduce((s,v)=>s+(+v||0),0);
+      const va=vn2/Math.pow(1+C/100,ta);
+      subm("Criticidade — C = índice de criticidade (t em anos)");
+      eq("C = soma das variáveis = "+n0(C));
+      eq("Va = Vn / (1 + C/100)^t = "+brl(vn2)+" / (1 + "+n0(C)+"/100)^"+nf(ta,2)+" = "+brl(va)); y+=1.5; }
+    if(inc("cole")){ const dp=(2*(vn2-vrAbs))/(Ta*(Ta+1)); const da=(ta*(2*Ta-ta+1)*dp)/2; const va=vn2-da;
+      subm("De Cole — soma dos dígitos (t, T em anos)");
+      eq("Dp = 2·(Vn - Vr) / [T·(T+1)] = 2·("+brl(vn2)+" - "+brl(vrAbs)+") / ["+nf(Ta,0)+"·("+nf(Ta,0)+"+1)] = "+brl(dp));
+      eq("Da = t·(2T - t + 1)·Dp/2 = "+nf(ta,0)+"·(2·"+nf(Ta,0)+" - "+nf(ta,0)+" + 1)·"+brl(dp)+"/2 = "+brl(da));
+      eq("Va = Vn - Da = "+brl(vn2)+" - "+brl(da)+" = "+brl(va)); y+=1.5; }
+    if(inc("economica")){ subm("Depreciação Econômica — fórmula editável");
+      eq("Va = "+((P.economica&&P.economica.formula)||"Vn*(1 - t/T)")+"    (t, T em anos; Vn e Vr conforme atributos)"); y+=1.5; }
+  }
+  y+=2;
+  secao("5  Resultado");
   ensure(LH(12)); doc.setFont("times","bold");doc.setFontSize(12);doc.text("Valor adotado: "+brl(val),ML,y); y+=LH(12)+1;
   campo("Critério de consolidação", (!bem.adotado||bem.adotado.criterio==="media"||!bem.adotado.criterio)?"média dos métodos":(NOMES[bem.adotado.criterio]||bem.adotado.criterio));
   campo("Conformidade (NBR 14653-1, item 9)", conformeBem(bem)?"laudo conforme":"pendente");
   y+=2;
 
-  let n=5;
+  let n=6;
   if(L.f_pressupostos){ secao(n+"  Pressupostos e condições limitantes"); par(L.f_pressupostos,{gap:3}); n++; }
 
   secao(n+"  Responsável técnico");
