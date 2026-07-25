@@ -2,8 +2,16 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>SALVe — Usuários</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2C383D">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SALVe">
+<link rel="icon" href="favicon-48.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>window.SALVE_API = "https://salve-backend.onrender.com";</script>
@@ -48,6 +56,25 @@
   .note b{color:var(--steel)}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--steel);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}.toast.show{opacity:1}
   .gate{max-width:460px;margin:80px auto;text-align:center;color:var(--muted)}
+
+  /* ---- PWA / responsivo (mobile sem distorção) ---- */
+  @supports(padding:env(safe-area-inset-top)){
+    .nav{padding-top:calc(11px + env(safe-area-inset-top))}
+    .toolbar{padding-top:calc(9px + env(safe-area-inset-top))}
+  }
+  @media(max-width:680px){
+    .wrap{padding:0 12px}
+    .nav{gap:4px;padding-left:14px;padding-right:14px}
+    .nav .brand{font-size:15px;margin-right:8px}
+    .nav a{padding:6px 8px;font-size:12.5px}
+    .card{overflow-x:auto}
+    table{min-width:520px}
+    .addrow{padding:12px 14px}
+    th,td{padding:9px 12px}
+    .body{padding-left:14px;padding-right:14px}
+    .doc-head{padding-left:16px;padding-right:16px}
+    .dtabs,.tabs{flex-wrap:wrap}
+  }
 </style>
 </head>
 <body>
@@ -168,5 +195,6 @@ $("btnAdd").onclick=async()=>{
 
 carregar();
 </script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});}</script>
 </body>
 </html>

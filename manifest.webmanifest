@@ -1,0 +1,17 @@
+{
+  "name": "SALVe — Sistema de Avaliação e Laudo de Ativos",
+  "short_name": "SALVe",
+  "description": "Avaliação e laudo de máquinas, equipamentos e instalações industriais (ABNT NBR 14653).",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "lang": "pt-BR",
+  "background_color": "#EEF0ED",
+  "theme_color": "#2C383D",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
