@@ -10,8 +10,9 @@
 <!--
   Configure a URL do backend antes deste arquivo (padrão do seu config.js):
     <script>window.SALVE_BACKEND_URL = 'https://seu-backend.onrender.com';</script>
-  O token JWT é lido de localStorage['salve_token'] e enviado como Bearer.
+  O token JWT é lido de localStorage[SALVE_TOKEN_KEY] e enviado como Bearer.
 -->
+<script src="config.js"></script>
 <style>
   :root {
     --ink: #16202e;
@@ -298,7 +299,7 @@
   const CONFIG = {
     backendUrl: (window.SALVE_BACKEND_URL || 'https://seu-backend.onrender.com').replace(/\/$/, ''),
     apiBase: '/api/regras',
-    tokenKey: 'salve_token',
+    tokenKey: (window.SALVE_TOKEN_KEY || 'salve_token'),
   };
   const API = CONFIG.backendUrl + CONFIG.apiBase;
 
