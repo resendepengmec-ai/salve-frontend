@@ -8,162 +8,85 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
 <!--
-  Configure a URL do backend antes deste arquivo (padrão do seu config.js):
-    <script>window.SALVE_BACKEND_URL = 'https://seu-backend.onrender.com';</script>
+  Configure a URL do backend antes deste arquivo:
+    <script src="config.js"></script>   →  window.SALVE_BACKEND_URL
   O token JWT é lido de localStorage[SALVE_TOKEN_KEY] e enviado como Bearer.
+  /api/regras é aberto (cálculo ao vivo); /api/salve exige login (salvar).
 -->
 <script src="config.js"></script>
 <style>
   :root {
-    --ink: #16202e;
-    --bg: #eef1f5;
-    --surface: #ffffff;
-    --panel: #f7f9fb;
-    --line: #d7dee7;
-    --text: #263244;
-    --muted: #647085;
-    --accent: #0e6b7d;
-    --accent-weak: #e3eff2;
-    --g3: #15803d;
-    --g2: #b45309;
-    --g1: #64748b;
-    --pt: #b42318;
-    --warn-bg: #fdf6e3;
-    --warn-line: #e8d59a;
-    --err-bg: #fdecea;
-    --err-line: #f0c2ba;
-    --radius: 10px;
-    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
-    --disp: "Space Grotesk", system-ui, sans-serif;
+    --ink:#16202e; --bg:#eef1f5; --surface:#fff; --panel:#f7f9fb; --line:#d7dee7;
+    --text:#263244; --muted:#647085; --accent:#0e6b7d; --accent-weak:#e3eff2;
+    --g3:#15803d; --g2:#b45309; --g1:#64748b; --pt:#b42318;
+    --warn-bg:#fdf6e3; --warn-line:#e8d59a; --err-bg:#fdecea; --err-line:#f0c2ba;
+    --ok-bg:#e7f5ec; --ok-line:#b6ddc4;
+    --radius:10px;
+    --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --disp:"Space Grotesk",system-ui,sans-serif;
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 1060px; margin: 0 auto; padding: 28px 20px 64px; }
-
-  header.top {
-    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
-    border-bottom: 2px solid var(--ink); padding-bottom: 14px; margin-bottom: 26px;
-  }
-  header.top h1 {
-    font-family: var(--disp); font-weight: 700; font-size: 22px;
-    letter-spacing: -.01em; color: var(--ink); margin: 0;
-  }
-  header.top .norma {
-    font-family: var(--mono); font-size: 12px; color: var(--muted);
-    letter-spacing: .02em;
-  }
-  header.top .spacer { flex: 1; }
-  #conn {
-    font-family: var(--mono); font-size: 12px; color: var(--muted);
-    display: inline-flex; align-items: center; gap: 6px;
-  }
-  #conn .dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd3dd; }
-  #conn.ok .dot { background: var(--g3); }
-  #conn.err .dot { background: var(--pt); }
-
-  .grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
-  @media (max-width: 840px) { .grid { grid-template-columns: 1fr; } }
-
-  .card {
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: var(--radius); padding: 20px 22px;
-  }
-  .card + .card { margin-top: 18px; }
-
-  .eyebrow {
-    font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
-    text-transform: uppercase; color: var(--accent); margin: 0 0 2px;
-  }
-  .card h2 {
-    font-family: var(--disp); font-weight: 600; font-size: 16px;
-    color: var(--ink); margin: 0 0 16px;
-  }
-
-  .field { margin-bottom: 15px; }
-  .field:last-child { margin-bottom: 0; }
-  label.lbl {
-    display: block; font-weight: 600; font-size: 13px; color: var(--ink);
-    margin-bottom: 5px;
-  }
-  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
-  select, input[type="number"] {
-    width: 100%; padding: 9px 11px; font: inherit; color: var(--text);
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: 8px; appearance: none;
-  }
-  select:focus, input:focus {
-    outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent);
-  }
-  select:disabled { background: var(--panel); color: var(--muted); cursor: not-allowed; }
-
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .inline { display: flex; align-items: center; gap: 8px; }
-  .inline input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
-  .inline label { font-size: 13px; color: var(--text); }
-
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-  .seg button {
-    font: inherit; font-size: 13px; padding: 8px 14px; border: 0; background: var(--surface);
-    color: var(--muted); cursor: pointer;
-  }
-  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
-
-  .note {
-    font-size: 13px; padding: 10px 12px; border-radius: 8px;
-    background: var(--accent-weak); color: #0b4d5a; border: 1px solid #bfe0e6;
-  }
-
-  /* ---- Painel de fundamentação (assinatura) ---- */
-  .gauge { position: sticky; top: 18px; }
-  .gauge .badge {
-    display: flex; align-items: center; gap: 16px;
-    padding: 18px; border-radius: var(--radius);
-    background: var(--ink); color: #fff;
-  }
-  .gauge .grau {
-    font-family: var(--disp); font-weight: 700; font-size: 46px; line-height: 1;
-    min-width: 78px; text-align: center;
-  }
-  .gauge .grau.small { font-size: 22px; letter-spacing: -.01em; }
-  .gauge .meta .k { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .7; }
-  .gauge .meta .pts { font-family: var(--mono); font-size: 24px; font-weight: 600; }
-  .gauge .badge.g3 { background: #0f3d24; } .gauge .badge.g3 .grau { color: #6ee7a8; }
-  .gauge .badge.g2 { background: #402208; } .gauge .badge.g2 .grau { color: #fbbf6b; }
-  .gauge .badge.g1 { background: #232a34; } .gauge .badge.g1 .grau { color: #cbd5e1; }
-  .gauge .badge.pt { background: #3d100c; } .gauge .badge.pt .grau { color: #fca5a5; }
-
-  .items { margin-top: 14px; display: grid; gap: 8px; }
-  .item {
-    display: grid; grid-template-columns: 1fr auto; align-items: center;
-    font-size: 13px; padding: 8px 10px; background: var(--panel);
-    border: 1px solid var(--line); border-radius: 8px;
-  }
-  .item .g { font-family: var(--mono); font-weight: 700; font-size: 13px; padding: 1px 8px; border-radius: 999px; }
-  .g.v3 { color: #fff; background: var(--g3); }
-  .g.v2 { color: #fff; background: var(--g2); }
-  .g.v1 { color: #fff; background: var(--g1); }
-  .g.v0 { color: #fff; background: var(--pt); }
-
-  .motivo { margin-top: 12px; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
-
-  .alerts { margin-top: 14px; display: grid; gap: 8px; }
-  .alert {
-    font-size: 12.5px; line-height: 1.45; padding: 9px 11px; border-radius: 8px;
-    background: var(--warn-bg); border: 1px solid var(--warn-line); color: #6b4e0a;
-  }
-  .alert.err { background: var(--err-bg); border-color: var(--err-line); color: #8a1c11; }
-
-  .empty { color: var(--muted); font-size: 13px; }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .badge, .item { transition: background .2s ease, color .2s ease; }
-  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1060px;margin:0 auto;padding:28px 20px 64px;}
+  header.top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+    border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:26px;}
+  header.top h1{font-family:var(--disp);font-weight:700;font-size:22px;letter-spacing:-.01em;color:var(--ink);margin:0;}
+  header.top .norma{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.02em;}
+  header.top .spacer{flex:1;}
+  #conn{font-family:var(--mono);font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;}
+  #conn .dot{width:8px;height:8px;border-radius:50%;background:#cbd3dd;}
+  #conn.ok .dot{background:var(--g3);} #conn.err .dot{background:var(--pt);}
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start;}
+  @media (max-width:840px){.grid{grid-template-columns:1fr;}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;}
+  .card+.card{margin-top:18px;}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:0 0 2px;}
+  .card h2{font-family:var(--disp);font-weight:600;font-size:16px;color:var(--ink);margin:0 0 16px;}
+  .field{margin-bottom:15px;} .field:last-child{margin-bottom:0;}
+  label.lbl{display:block;font-weight:600;font-size:13px;color:var(--ink);margin-bottom:5px;}
+  .hint{font-size:12px;color:var(--muted);margin-top:4px;}
+  select,input[type="number"],input[type="text"]{width:100%;padding:9px 11px;font:inherit;color:var(--text);
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;appearance:none;}
+  select:focus,input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent);}
+  select:disabled{background:var(--panel);color:var(--muted);cursor:not-allowed;}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .inline{display:flex;align-items:center;gap:8px;}
+  .inline input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent);}
+  .inline label{font-size:13px;color:var(--text);}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .seg button{font:inherit;font-size:13px;padding:8px 14px;border:0;background:var(--surface);color:var(--muted);cursor:pointer;}
+  .seg button[aria-pressed="true"]{background:var(--accent);color:#fff;}
+  .note{font-size:13px;padding:10px 12px;border-radius:8px;background:var(--accent-weak);color:#0b4d5a;border:1px solid #bfe0e6;}
+  /* Painel de fundamentação */
+  .gauge{position:sticky;top:18px;}
+  .gauge .badge{display:flex;align-items:center;gap:16px;padding:18px;border-radius:var(--radius);background:var(--ink);color:#fff;}
+  .gauge .grau{font-family:var(--disp);font-weight:700;font-size:46px;line-height:1;min-width:78px;text-align:center;}
+  .gauge .grau.small{font-size:22px;letter-spacing:-.01em;}
+  .gauge .meta .k{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.7;}
+  .gauge .meta .pts{font-family:var(--mono);font-size:24px;font-weight:600;}
+  .gauge .badge.g3{background:#0f3d24;} .gauge .badge.g3 .grau{color:#6ee7a8;}
+  .gauge .badge.g2{background:#402208;} .gauge .badge.g2 .grau{color:#fbbf6b;}
+  .gauge .badge.g1{background:#232a34;} .gauge .badge.g1 .grau{color:#cbd5e1;}
+  .gauge .badge.pt{background:#3d100c;} .gauge .badge.pt .grau{color:#fca5a5;}
+  .items{margin-top:14px;display:grid;gap:8px;}
+  .item{display:grid;grid-template-columns:1fr auto;align-items:center;font-size:13px;padding:8px 10px;
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;}
+  .item .g{font-family:var(--mono);font-weight:700;font-size:13px;padding:1px 8px;border-radius:999px;}
+  .g.v3{color:#fff;background:var(--g3);} .g.v2{color:#fff;background:var(--g2);}
+  .g.v1{color:#fff;background:var(--g1);} .g.v0{color:#fff;background:var(--pt);}
+  .motivo{margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.45;}
+  .alerts{margin-top:14px;display:grid;gap:8px;}
+  .alert{font-size:12.5px;line-height:1.45;padding:9px 11px;border-radius:8px;background:var(--warn-bg);border:1px solid var(--warn-line);color:#6b4e0a;}
+  .alert.err{background:var(--err-bg);border-color:var(--err-line);color:#8a1c11;}
+  /* Salvar */
+  .saveRow{display:flex;align-items:center;gap:14px;margin-top:18px;flex-wrap:wrap;}
+  .btn{font:inherit;font-weight:600;font-size:14px;padding:11px 20px;border:0;border-radius:8px;
+    background:var(--ink);color:#fff;cursor:pointer;}
+  .btn:disabled{background:#9aa5b3;cursor:not-allowed;}
+  .status{font-size:13px;line-height:1.4;}
+  .status.ok{color:var(--g3);} .status.err{color:var(--pt);} .status.busy{color:var(--muted);}
+  @media (prefers-reduced-motion:no-preference){.badge,.item{transition:background .2s ease,color .2s ease;}}
 </style>
 </head>
 <body>
@@ -176,28 +99,37 @@
   </header>
 
   <div class="grid">
-    <!-- Coluna de entrada -->
     <div>
+      <section class="card">
+        <p class="eyebrow">Onde salvar</p>
+        <h2>Contrato e bem</h2>
+        <div class="field">
+          <label class="lbl" for="contrato">Contrato</label>
+          <select id="contrato"><option value="">Faça login para listar contratos</option></select>
+          <p class="hint" id="contratoHint">O bem avaliado é gravado dentro de um contrato.</p>
+        </div>
+        <div class="field">
+          <label class="lbl" for="nomeBem">Identificação do bem</label>
+          <input type="text" id="nomeBem" placeholder="Ex.: Compressor parafuso 50 HP — tag C-102" />
+        </div>
+      </section>
+
       <section class="card">
         <p class="eyebrow">Enquadramento do valor</p>
         <h2>Finalidade e objeto</h2>
-
         <div class="field">
           <label class="lbl" for="finalidade">Finalidade da avaliação</label>
           <select id="finalidade"><option value="">Selecione…</option></select>
         </div>
-
         <div class="field">
           <label class="lbl" for="agregacao">Grau de agregação do bem</label>
           <select id="agregacao"><option value="">Selecione…</option></select>
         </div>
-
         <div class="field">
           <label class="lbl" for="tipoValor">Tipo de valor</label>
           <select id="tipoValor" disabled><option value="">Escolha finalidade e agregação</option></select>
           <p class="hint" id="tvHint">A norma restringe os tipos de valor conforme finalidade × agregação (Tabela 1).</p>
         </div>
-
         <div class="field">
           <label class="lbl" for="metodo">Método de avaliação</label>
           <select id="metodo" disabled><option value="">Escolha o tipo de valor</option></select>
@@ -208,7 +140,6 @@
       <section class="card" id="fundCard">
         <p class="eyebrow">Grau de fundamentação · Tabela 2</p>
         <h2>Fundamentação do item</h2>
-
         <div id="fundIsolado">
           <div class="field">
             <label class="lbl" for="vistoria">Vistoria</label>
@@ -218,7 +149,6 @@
               <option value="1">I — Caracterização sintética, com fotografia</option>
             </select>
           </div>
-
           <div class="field">
             <label class="lbl" for="funcionamento">Funcionamento</label>
             <select id="funcionamento">
@@ -227,7 +157,6 @@
               <option value="1">I — Não foi possível observar</option>
             </select>
           </div>
-
           <div class="field">
             <label class="lbl">Fontes e dados de mercado</label>
             <div class="row">
@@ -237,9 +166,7 @@
                   <button type="button" id="baseMercado" aria-pressed="false">Mercado</button>
                 </div>
               </div>
-              <div>
-                <input type="number" id="qtdDados" min="0" step="1" value="3" aria-label="Quantidade de dados/cotações" />
-              </div>
+              <div><input type="number" id="qtdDados" min="0" step="1" value="3" aria-label="Quantidade de dados/cotações" /></div>
             </div>
             <div class="inline" style="margin-top:10px" id="wrapCotacao">
               <input type="checkbox" id="cotacaoDireta" />
@@ -248,43 +175,35 @@
             <div class="inline" style="margin-top:8px">
               <input type="checkbox" id="regressao" />
               <label for="regressao">Tratamento por regressão linear</label>
-              <input type="number" id="kvar" min="1" step="1" value="2" style="width:70px;margin-left:6px" aria-label="Número de variáveis independentes (k)" disabled />
+              <input type="number" id="kvar" min="1" step="1" value="2" style="width:70px;margin-left:6px" aria-label="Variáveis independentes (k)" disabled />
               <span class="hint" style="margin:0">k variáveis · exige n ≥ 3k+1</span>
             </div>
           </div>
-
           <div class="field">
             <label class="lbl" for="depreciacao">Depreciação</label>
-            <select id="depreciacao">
-              <option value="ross_heidecke">Ross-Heidecke — metodologia consagrada (II)</option>
-              <option value="caires">De Caíres — metodologia consagrada (II)</option>
-              <option value="cole">De Cole — metodologia consagrada (II)</option>
-              <option value="criticidade">Criticidade — metodologia consagrada (II)</option>
-              <option value="economica">Depreciação econômica — metodologia consagrada (II)</option>
-              <option value="arbitrada">Arbitrada (I)</option>
-            </select>
-            <p class="hint" id="deprHint">Se o valor sair por comparativo direto de mercado, a depreciação é implícita (Grau III).</p>
+            <select id="depreciacao"><option value="arbitrada">Arbitrada (I)</option></select>
+            <p class="hint" id="deprHint">Método consagrado = Grau II; arbitrada = Grau I. Se o valor sair por comparativo direto de mercado, é implícita (Grau III).</p>
           </div>
         </div>
-
         <div id="fundUnidade" class="note" hidden>
           Para módulo ou unidade industrial, o grau usa a composição de valor por grupo
           (Tabelas 4-5) numa tela própria de unidade — não neste item isolado.
         </div>
+
+        <div class="saveRow">
+          <button type="button" class="btn" id="btnSalvar">Salvar no contrato</button>
+          <span class="status" id="saveStatus"></span>
+        </div>
       </section>
     </div>
 
-    <!-- Coluna do painel (assinatura) -->
     <aside class="gauge">
       <section class="card">
         <p class="eyebrow">Resultado ao vivo</p>
         <h2>Grau de fundamentação</h2>
         <div id="badge" class="badge">
           <div class="grau" id="grauNum">—</div>
-          <div class="meta">
-            <div class="k">Pontos</div>
-            <div class="pts" id="pontos">—</div>
-          </div>
+          <div class="meta"><div class="k">Pontos</div><div class="pts" id="pontos">—</div></div>
         </div>
         <div class="items" id="itemBreak"></div>
         <div class="motivo" id="motivo"></div>
@@ -297,212 +216,203 @@
 <script>
 (() => {
   const CONFIG = {
-    backendUrl: (window.SALVE_BACKEND_URL || 'https://seu-backend.onrender.com').replace(/\/$/, ''),
-    apiBase: '/api/regras',
-    tokenKey: (window.SALVE_TOKEN_KEY || 'salve_token'),
+    backendUrl:(window.SALVE_BACKEND_URL||'https://seu-backend.onrender.com').replace(/\/$/,''),
+    tokenKey:(window.SALVE_TOKEN_KEY||'salve_token'),
   };
-  const API = CONFIG.backendUrl + CONFIG.apiBase;
-
+  const R = CONFIG.backendUrl + '/api/regras';   // aberto
+  const S = CONFIG.backendUrl + '/api/salve';    // exige login
   const $ = (id) => document.getElementById(id);
   const conn = $('conn'), connLabel = $('connLabel');
 
-  function authHeaders() {
-    const t = localStorage.getItem(CONFIG.tokenKey);
-    return t ? { Authorization: 'Bearer ' + t } : {};
-  }
-  async function api(path, opts = {}) {
-    const res = await fetch(API + path, {
-      ...opts,
-      headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(opts.headers || {}) },
-    });
-    if (!res.ok && res.status !== 400) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.erro || ('HTTP ' + res.status));
-    }
+  const getToken = () => localStorage.getItem(CONFIG.tokenKey);
+  const authHeaders = () => { const t=getToken(); return t?{Authorization:'Bearer '+t}:{}; };
+
+  // /api/regras → JSON cru
+  async function apiR(path, opts={}) {
+    const res = await fetch(R+path, { ...opts, headers:{'Content-Type':'application/json', ...(opts.headers||{})} });
+    if (!res.ok && res.status!==400) throw new Error('HTTP '+res.status);
     return res.json();
   }
-  function setConn(state, label) {
-    conn.className = state; connLabel.textContent = label;
+  // /api/salve → { ok, data } (desembrulha)
+  async function apiS(path, opts={}) {
+    const res = await fetch(S+path, { ...opts, headers:{'Content-Type':'application/json', ...authHeaders(), ...(opts.headers||{})} });
+    if (res.status===401) throw new Error('Sessão não encontrada — faça login no SALVe.');
+    const body = await res.json().catch(()=>({}));
+    if (!res.ok || body.ok===false) throw new Error(body.error || ('HTTP '+res.status));
+    return body.data;
   }
+  const setConn = (state,label) => { conn.className=state; connLabel.textContent=label; };
+  const opt = (v,t) => { const o=document.createElement('option'); o.value=v; o.textContent=t; return o; };
+  const fill = (sel,items,ph) => { sel.innerHTML=''; if(ph) sel.append(opt('',ph)); items.forEach(it=>sel.append(opt(it.id,it.label))); };
 
-  const ISOLADO = new Set(['isolado_nao_instalado', 'isolado_instalado', 'integrado_processo']);
-  const state = { base: 'reedicao', recomendados: [] };
+  const ISOLADO = new Set(['isolado_nao_instalado','isolado_instalado','integrado_processo']);
+  const DEPR_FALLBACK = [
+    {id:'caires',nome:'De Caíres'},{id:'ross-heidecke',nome:'Ross-Heidecke'},
+    {id:'criticidade',nome:'Criticidade'},{id:'cole',nome:'De Cole'},{id:'economica',nome:'Depreciação econômica'},
+  ];
+  const state = { base:'reedicao', recomendados:[], bemId:null };
 
-  // ---- carga inicial ----
   async function init() {
+    // regras (aberto) — cascata
     try {
-      const [fins, agrs] = await Promise.all([api('/finalidades'), api('/agregacoes')]);
-      fill($('finalidade'), fins, 'Selecione…');
-      fill($('agregacao'), agrs, 'Selecione…');
-      setConn('ok', 'backend conectado');
-    } catch (e) {
-      setConn('err', 'sem conexão · confira config.js');
-      pushAlert('Não foi possível falar com o backend em ' + CONFIG.backendUrl +
-        '. Defina window.SALVE_BACKEND_URL e confirme que o serviço está no ar.', true);
+      const [fins,agrs] = await Promise.all([apiR('/finalidades'), apiR('/agregacoes')]);
+      fill($('finalidade'),fins,'Selecione…'); fill($('agregacao'),agrs,'Selecione…');
+      setConn('ok','backend conectado');
+    } catch(e) {
+      setConn('err','sem conexão · confira config.js');
+      pushAlert('Não foi possível falar com /api/regras em '+CONFIG.backendUrl+'. Confira window.SALVE_BACKEND_URL.', true);
+    }
+    // depreciação: do catálogo do metodos.js (mesmos ids do motor de valor); fallback local
+    let metodosDepr = DEPR_FALLBACK;
+    try { const ref = await apiS('/referencias'); if (ref && Array.isArray(ref.metodos) && ref.metodos.length) metodosDepr = ref.metodos; }
+    catch(e) { /* sem login: usa fallback (ids já alinhados) */ }
+    montarDepreciacao(metodosDepr);
+    // contratos (exige login)
+    try {
+      const cs = await apiS('/contratos');
+      const sel = $('contrato'); sel.innerHTML=''; sel.append(opt('','Selecione o contrato…'));
+      cs.forEach(c => sel.append(opt(c.id, c.nome || c.titulo || c.cliente || c.id)));
+      $('contratoHint').textContent = cs.length ? 'O bem avaliado é gravado dentro de um contrato.' : 'Nenhum contrato disponível — crie um contrato primeiro.';
+    } catch(e) {
+      $('contrato').innerHTML=''; $('contrato').append(opt('','Faça login para listar contratos'));
+      $('contratoHint').textContent = 'Você pode calcular o grau sem login; para salvar, faça login no SALVe.';
     }
   }
-  function fill(sel, items, placeholder) {
-    sel.innerHTML = '';
-    if (placeholder) sel.append(opt('', placeholder));
-    items.forEach((it) => sel.append(opt(it.id, it.label)));
+
+  function montarDepreciacao(metodos) {
+    const dep = $('depreciacao'); dep.innerHTML='';
+    metodos.forEach(m => dep.append(opt(m.id, (m.nome||m.id) + ' — consagrada (II)')));
+    dep.append(opt('arbitrada','Arbitrada (I)'));
   }
-  function opt(v, t) { const o = document.createElement('option'); o.value = v; o.textContent = t; return o; }
 
   // ---- cascata ----
   async function onFinAgr() {
-    const finalidade = $('finalidade').value, agregacao = $('agregacao').value;
-    const tv = $('tipoValor');
-    // bloco de fundamentação: isolado x unidade
+    const finalidade=$('finalidade').value, agregacao=$('agregacao').value, tv=$('tipoValor');
     const isolado = ISOLADO.has(agregacao);
     $('fundIsolado').hidden = !isolado || !agregacao;
     $('fundUnidade').hidden = isolado || !agregacao;
-
     if (!finalidade || !agregacao) {
-      tv.disabled = true; tv.innerHTML = ''; tv.append(opt('', 'Escolha finalidade e agregação'));
-      resetMetodo(); recalc(); return;
+      tv.disabled=true; tv.innerHTML=''; tv.append(opt('','Escolha finalidade e agregação')); resetMetodo(); recalc(); return;
     }
     try {
-      const r = await api('/valores-admissiveis?finalidade=' + finalidade + '&agregacao=' + agregacao);
+      const r = await apiR('/valores-admissiveis?finalidade='+finalidade+'&agregacao='+agregacao);
       if (!r.aplicavel || !r.valores.length) {
-        tv.disabled = true; tv.innerHTML = ''; tv.append(opt('', 'Não aplicável nesta combinação'));
-        $('tvHint').textContent = 'A Tabela 1 marca este cruzamento como não aplicável.';
+        tv.disabled=true; tv.innerHTML=''; tv.append(opt('','Não aplicável nesta combinação'));
+        $('tvHint').textContent='A Tabela 1 marca este cruzamento como não aplicável.';
       } else {
-        tv.disabled = false; tv.innerHTML = ''; tv.append(opt('', 'Selecione…'));
-        r.valores.forEach((v) => tv.append(opt(v.id, v.label)));
-        $('tvHint').textContent = r.valores.length + ' tipo(s) de valor admitido(s) pela Tabela 1.';
+        tv.disabled=false; tv.innerHTML=''; tv.append(opt('','Selecione…'));
+        r.valores.forEach(v=>tv.append(opt(v.id,v.label)));
+        $('tvHint').textContent=r.valores.length+' tipo(s) de valor admitido(s) pela Tabela 1.';
       }
-    } catch (e) { pushAlert('Falha ao buscar tipos de valor: ' + e.message, true); }
+    } catch(e){ pushAlert('Falha ao buscar tipos de valor: '+e.message,true); }
     resetMetodo(); recalc();
   }
-
   async function onTipoValor() {
-    const tipoValor = $('tipoValor').value;
-    const m = $('metodo');
-    if (!tipoValor) { resetMetodo(); recalc(); return; }
+    const tipoValor=$('tipoValor').value, m=$('metodo');
+    if (!tipoValor){ resetMetodo(); recalc(); return; }
     try {
-      const [todos, rec] = await Promise.all([api('/metodos'), api('/metodos-recomendados?tipoValor=' + tipoValor)]);
-      state.recomendados = rec.map((x) => x.id);
-      const preferencial = rec.find((x) => x.preferencial)?.id;
-      m.disabled = false; m.innerHTML = '';
-      todos.forEach((mt) => {
-        const r0 = state.recomendados.includes(mt.id);
-        const o = opt(mt.id, (r0 ? '✓ ' : '') + mt.label);
-        m.append(o);
-      });
-      if (preferencial) m.value = preferencial;
-      atualizarDepreciacao();
-      recalc();
-    } catch (e) { pushAlert('Falha ao buscar métodos: ' + e.message, true); }
+      const [todos,rec] = await Promise.all([apiR('/metodos'), apiR('/metodos-recomendados?tipoValor='+tipoValor)]);
+      state.recomendados = rec.map(x=>x.id);
+      const pref = rec.find(x=>x.preferencial)?.id;
+      m.disabled=false; m.innerHTML='';
+      todos.forEach(mt=>m.append(opt(mt.id,(state.recomendados.includes(mt.id)?'✓ ':'')+mt.label)));
+      if (pref) m.value=pref;
+      atualizarDepreciacao(); recalc();
+    } catch(e){ pushAlert('Falha ao buscar métodos: '+e.message,true); }
   }
-  function resetMetodo() {
-    const m = $('metodo'); m.disabled = true; m.innerHTML = ''; m.append(opt('', 'Escolha o tipo de valor'));
-    state.recomendados = [];
+  function resetMetodo(){ const m=$('metodo'); m.disabled=true; m.innerHTML=''; m.append(opt('','Escolha o tipo de valor')); state.recomendados=[]; }
+  function atualizarDepreciacao(){
+    const dep=$('depreciacao');
+    if ($('metodo').value==='comparativo_direto_mercado'){ dep.disabled=true; $('deprHint').textContent='Valor por comparativo direto de mercado → depreciação implícita (Grau III).'; }
+    else { dep.disabled=false; $('deprHint').textContent='Método consagrado = Grau II; arbitrada = Grau I.'; }
   }
+  function setBase(b){ state.base=b; $('baseReedicao').setAttribute('aria-pressed',String(b==='reedicao'));
+    $('baseMercado').setAttribute('aria-pressed',String(b==='mercado')); $('wrapCotacao').style.display=b==='reedicao'?'':'none'; recalc(); }
 
-  // depreciação implícita quando valor sai por comparativo direto de mercado
-  function atualizarDepreciacao() {
-    const dep = $('depreciacao');
-    if ($('metodo').value === 'comparativo_direto_mercado') {
-      dep.disabled = true;
-      $('deprHint').textContent = 'Valor por comparativo direto de mercado → depreciação implícita (Grau III).';
-    } else {
-      dep.disabled = false;
-      $('deprHint').textContent = 'Método consagrado = Grau II; arbitrada = Grau I.';
-    }
-  }
-
-  // ---- base reedição/mercado ----
-  function setBase(b) {
-    state.base = b;
-    $('baseReedicao').setAttribute('aria-pressed', String(b === 'reedicao'));
-    $('baseMercado').setAttribute('aria-pressed', String(b === 'mercado'));
-    $('wrapCotacao').style.display = b === 'reedicao' ? '' : 'none';
-    recalc();
-  }
-
-  // ---- recálculo (POST /avaliar-item) ----
-  let timer;
-  function recalc() { clearTimeout(timer); timer = setTimeout(doRecalc, 120); }
-
-  async function doRecalc() {
-    clearAlerts();
-    const finalidade = $('finalidade').value, agregacao = $('agregacao').value, tipoValor = $('tipoValor').value;
-    if (!finalidade || !agregacao || !tipoValor) { renderGrau(null); return; }
-
-    const payload = { finalidade, agregacao, tipoValor, metodoValor: $('metodo').value };
+  // ---- monta o enquadramento (reusado por recalc e salvar) ----
+  function montarEnquadramento() {
+    const agregacao=$('agregacao').value;
+    const enq = { finalidade:$('finalidade').value, agregacao, tipoValor:$('tipoValor').value, metodoValor:$('metodo').value };
     if (ISOLADO.has(agregacao)) {
-      payload.fundamentacao = {
-        vistoria: Number($('vistoria').value),
-        funcionamento: Number($('funcionamento').value),
-        dadosMercado: {
-          base: state.base,
-          qtdDados: Number($('qtdDados').value || 0),
-          cotacaoDiretaFabricante: $('cotacaoDireta').checked,
-          regressao: $('regressao').checked,
-          k: Number($('kvar').value || 0),
-        },
-        depreciacao: { metodoDepreciacao: $('depreciacao').value },
+      enq.fundamentacao = {
+        vistoria:Number($('vistoria').value), funcionamento:Number($('funcionamento').value),
+        dadosMercado:{ base:state.base, qtdDados:Number($('qtdDados').value||0),
+          cotacaoDiretaFabricante:$('cotacaoDireta').checked, regressao:$('regressao').checked, k:Number($('kvar').value||0) },
+        depreciacao:{ metodoDepreciacao:$('depreciacao').value },
       };
     }
-    try {
-      const r = await api('/avaliar-item', { method: 'POST', body: JSON.stringify(payload) });
-      (r.erros || []).forEach((e) => pushAlert(e, true));
-      (r.alertas || []).forEach((a) => pushAlert(a, false));
-      renderGrau(r.grauFundamentacao);
-    } catch (e) { pushAlert('Falha na validação: ' + e.message, true); renderGrau(null); }
+    return enq;
   }
+
+  // ---- recálculo ao vivo ----
+  let timer;
+  function recalc(){ clearTimeout(timer); timer=setTimeout(doRecalc,120); }
+  async function doRecalc() {
+    clearAlerts();
+    const e=montarEnquadramento();
+    if (!e.finalidade || !e.agregacao || !e.tipoValor){ renderGrau(null); return; }
+    try {
+      const r = await apiR('/avaliar-item',{ method:'POST', body:JSON.stringify(e) });
+      (r.erros||[]).forEach(x=>pushAlert(x,true));
+      (r.alertas||[]).forEach(x=>pushAlert(x,false));
+      renderGrau(r.grauFundamentacao);
+    } catch(err){ pushAlert('Falha na validação: '+err.message,true); renderGrau(null); }
+  }
+
+  // ---- salvar no contrato ----
+  async function salvar() {
+    setStatus('','');
+    const contrato=$('contrato').value, e=montarEnquadramento();
+    if (!getToken()){ setStatus('Faça login no SALVe para salvar.','err'); return; }
+    if (!contrato){ setStatus('Escolha o contrato antes de salvar.','err'); return; }
+    if (!e.finalidade || !e.agregacao || !e.tipoValor){ setStatus('Preencha finalidade, agregação e tipo de valor.','err'); return; }
+    if (!state.bemId) state.bemId = 'bem_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    const record = { id:state.bemId, contrato, nome:$('nomeBem').value.trim(), enquadramento:e };
+    $('btnSalvar').disabled=true; setStatus('Salvando…','busy');
+    try {
+      await apiS('/bens',{ method:'POST', body:JSON.stringify({ record }) });
+      const calc = await apiS('/bens/'+state.bemId+'/calcular',{ method:'POST', body:JSON.stringify({}) });
+      if (calc && calc.fundamentacao && calc.fundamentacao.grauFundamentacao) renderGrau(calc.fundamentacao.grauFundamentacao);
+      setStatus('Salvo no contrato (bem '+state.bemId+').','ok');
+    } catch(err){ setStatus('Falha ao salvar: '+err.message,'err'); }
+    finally { $('btnSalvar').disabled=false; }
+  }
+  function setStatus(msg,kind){ const s=$('saveStatus'); s.textContent=msg; s.className='status'+(kind?' '+kind:''); }
 
   // ---- render do painel ----
-  const ROMANO = { 3: 'III', 2: 'II', 1: 'I', 0: '0' };
-  const LABEL_ITEM = { vistoria: 'Vistoria', funcionamento: 'Funcionamento', dados_mercado: 'Dados de mercado', depreciacao: 'Depreciação' };
-
+  const ROMANO={3:'III',2:'II',1:'I',0:'0'};
+  const LABEL_ITEM={vistoria:'Vistoria',funcionamento:'Funcionamento',dados_mercado:'Dados de mercado',depreciacao:'Depreciação'};
   function renderGrau(g) {
-    const badge = $('badge'), num = $('grauNum'), pts = $('pontos'), brk = $('itemBreak'), mot = $('motivo');
-    badge.className = 'badge';
-    if (!g) {
-      num.className = 'grau'; num.textContent = '—'; pts.textContent = '—';
-      brk.innerHTML = ''; mot.textContent = 'Preencha finalidade, agregação e tipo de valor.';
-      return;
-    }
-    if (g.parecerTecnico) {
-      badge.classList.add('pt'); num.className = 'grau small'; num.textContent = 'Parecer\ntécnico';
-      num.style.whiteSpace = 'pre-line'; pts.textContent = g.pontos ?? '—';
-    } else {
-      badge.classList.add('g' + g.grau); num.className = 'grau'; num.style.whiteSpace = '';
-      num.textContent = g.grauRomano; pts.textContent = g.pontos;
-    }
-    brk.innerHTML = '';
-    const itens = g.itens || {};
-    ['vistoria', 'funcionamento', 'dados_mercado', 'depreciacao'].forEach((k) => {
-      if (!(k in itens)) return;
-      const v = itens[k];
-      const row = document.createElement('div'); row.className = 'item';
-      row.innerHTML = '<span>' + LABEL_ITEM[k] + '</span><span class="g v' + v + '">' + (ROMANO[v] || v) + '</span>';
-      brk.append(row);
+    const badge=$('badge'),num=$('grauNum'),pts=$('pontos'),brk=$('itemBreak'),mot=$('motivo');
+    badge.className='badge';
+    if (!g){ num.className='grau'; num.textContent='—'; pts.textContent='—'; brk.innerHTML=''; mot.textContent='Preencha finalidade, agregação e tipo de valor.'; return; }
+    if (g.parecerTecnico){ badge.classList.add('pt'); num.className='grau small'; num.textContent='Parecer\ntécnico'; num.style.whiteSpace='pre-line'; pts.textContent=g.pontos??'—'; }
+    else { badge.classList.add('g'+g.grau); num.className='grau'; num.style.whiteSpace=''; num.textContent=g.grauRomano; pts.textContent=g.pontos; }
+    brk.innerHTML='';
+    const itens=g.itens||{};
+    ['vistoria','funcionamento','dados_mercado','depreciacao'].forEach(k=>{
+      if(!(k in itens))return; const v=itens[k];
+      const row=document.createElement('div'); row.className='item';
+      row.innerHTML='<span>'+LABEL_ITEM[k]+'</span><span class="g v'+v+'">'+(ROMANO[v]||v)+'</span>'; brk.append(row);
     });
-    mot.textContent = g.motivo || '';
+    mot.textContent=g.motivo||'';
   }
-
-  // ---- alertas ----
-  function clearAlerts() { $('alerts').innerHTML = ''; }
-  function pushAlert(msg, isErr) {
-    const d = document.createElement('div'); d.className = 'alert' + (isErr ? ' err' : '');
-    d.textContent = msg; $('alerts').append(d);
-  }
+  function clearAlerts(){ $('alerts').innerHTML=''; }
+  function pushAlert(msg,isErr){ const d=document.createElement('div'); d.className='alert'+(isErr?' err':''); d.textContent=msg; $('alerts').append(d); }
 
   // ---- listeners ----
-  $('finalidade').addEventListener('change', onFinAgr);
-  $('agregacao').addEventListener('change', onFinAgr);
-  $('tipoValor').addEventListener('change', onTipoValor);
-  $('metodo').addEventListener('change', () => { atualizarDepreciacao(); recalc(); });
-  ['vistoria', 'funcionamento', 'qtdDados', 'cotacaoDireta', 'depreciacao'].forEach((id) =>
-    $(id).addEventListener('change', recalc));
-  $('regressao').addEventListener('change', () => { $('kvar').disabled = !$('regressao').checked; recalc(); });
-  $('kvar').addEventListener('change', recalc);
-  $('baseReedicao').addEventListener('click', () => setBase('reedicao'));
-  $('baseMercado').addEventListener('click', () => setBase('mercado'));
+  $('finalidade').addEventListener('change',onFinAgr);
+  $('agregacao').addEventListener('change',onFinAgr);
+  $('tipoValor').addEventListener('change',onTipoValor);
+  $('metodo').addEventListener('change',()=>{ atualizarDepreciacao(); recalc(); });
+  ['vistoria','funcionamento','qtdDados','cotacaoDireta','depreciacao'].forEach(id=>$(id).addEventListener('change',recalc));
+  $('regressao').addEventListener('change',()=>{ $('kvar').disabled=!$('regressao').checked; recalc(); });
+  $('kvar').addEventListener('change',recalc);
+  $('baseReedicao').addEventListener('click',()=>setBase('reedicao'));
+  $('baseMercado').addEventListener('click',()=>setBase('mercado'));
+  $('btnSalvar').addEventListener('click',salvar);
 
-  init().then(renderGrau.bind(null, null));
+  init().then(()=>renderGrau(null));
 })();
 </script>
 </body>
