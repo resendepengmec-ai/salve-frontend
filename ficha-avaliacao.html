@@ -224,7 +224,16 @@
   const $ = (id) => document.getElementById(id);
   const conn = $('conn'), connLabel = $('connLabel');
 
-  const getToken = () => localStorage.getItem(CONFIG.tokenKey);
+  function getToken() {
+    const raw = localStorage.getItem(CONFIG.tokenKey);
+    if (!raw) return null;
+    // pode ser o JWT cru (eyJ...) ou um JSON { token/jwt/accessToken }
+    if (raw[0] === '{') {
+      try { const o = JSON.parse(raw); return o.token || o.jwt || o.accessToken || o.access_token || null; }
+      catch (e) { return raw; }
+    }
+    return raw;
+  }
   const authHeaders = () => { const t=getToken(); return t?{Authorization:'Bearer '+t}:{}; };
 
   // /api/regras → JSON cru
@@ -253,6 +262,11 @@
   const state = { base:'reedicao', recomendados:[], bemId:null };
 
   async function init() {
+    const params = new URLSearchParams(location.search);
+    const contratoParam = params.get('contrato');
+    const idParam = params.get('id');
+    if (idParam) state.bemId = idParam;
+
     // regras (aberto) — cascata
     try {
       const [fins,agrs] = await Promise.all([apiR('/finalidades'), apiR('/agregacoes')]);
@@ -272,11 +286,45 @@
       const cs = await apiS('/contratos');
       const sel = $('contrato'); sel.innerHTML=''; sel.append(opt('','Selecione o contrato…'));
       cs.forEach(c => sel.append(opt(c.id, c.nome || c.titulo || c.cliente || c.id)));
+      if (contratoParam) sel.value = contratoParam;
       $('contratoHint').textContent = cs.length ? 'O bem avaliado é gravado dentro de um contrato.' : 'Nenhum contrato disponível — crie um contrato primeiro.';
     } catch(e) {
       $('contrato').innerHTML=''; $('contrato').append(opt('','Faça login para listar contratos'));
       $('contratoHint').textContent = 'Você pode calcular o grau sem login; para salvar, faça login no SALVe.';
     }
+    // veio de uma avaliação existente (?id=): carrega o bem para editar/atualizar
+    if (idParam) {
+      try {
+        const bem = await apiS('/bens/'+idParam);
+        if (bem) {
+          if (bem.nome) $('nomeBem').value = bem.nome;
+          if (bem.contrato) $('contrato').value = bem.contrato;
+          await carregarEnquadramento(bem.enquadramento);
+          setStatus('Editando bem existente ('+idParam+').','busy');
+        }
+      } catch(e){ setStatus('Não foi possível carregar o bem '+idParam+': '+e.message,'err'); }
+    }
+  }
+
+  /** Repovoa a cascata a partir de um enquadramento salvo. */
+  async function carregarEnquadramento(enq) {
+    if (!enq) return;
+    $('finalidade').value = enq.finalidade || '';
+    $('agregacao').value  = enq.agregacao || '';
+    await onFinAgr();
+    if (enq.tipoValor) { $('tipoValor').value = enq.tipoValor; await onTipoValor(); }
+    if (enq.metodoValor) { $('metodo').value = enq.metodoValor; atualizarDepreciacao(); }
+    const f = enq.fundamentacao || {};
+    if (f.vistoria) $('vistoria').value = String(f.vistoria);
+    if (f.funcionamento) $('funcionamento').value = String(f.funcionamento);
+    const dm = f.dadosMercado || {};
+    if (dm.base) setBase(dm.base);
+    if (dm.qtdDados != null) $('qtdDados').value = dm.qtdDados;
+    $('cotacaoDireta').checked = !!dm.cotacaoDiretaFabricante;
+    $('regressao').checked = !!dm.regressao; $('kvar').disabled = !dm.regressao;
+    if (dm.k != null) $('kvar').value = dm.k;
+    if (f.depreciacao && f.depreciacao.metodoDepreciacao) $('depreciacao').value = f.depreciacao.metodoDepreciacao;
+    recalc();
   }
 
   function montarDepreciacao(metodos) {

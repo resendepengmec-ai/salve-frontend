@@ -4,5 +4,6 @@
  */
 window.SALVE_BACKEND_URL = 'https://salve-backend.onrender.com';
 
-// Chave do token JWT no localStorage (ajuste se o SALVe usar outro nome).
-window.SALVE_TOKEN_KEY = 'salve_token';
+// Chave do token JWT no localStorage. O app do SALVe herdou a auth do SGM,
+// que guarda o token em 'smm_auth'.
+window.SALVE_TOKEN_KEY = 'smm_auth';
