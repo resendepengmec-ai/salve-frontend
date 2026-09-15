@@ -1,7 +1,7 @@
 {
-  "name": "SALVe — Sistema de Avaliação e Laudos Virtuais",
+  "name": "SALVe — Sistema de Avaliações Laudos e Vistorias",
   "short_name": "SALVe",
-  "description": "Perícias de engenharia e avaliação de bens: prazos, honorários, evidências e laudo (ABNT NBR 14653).",
+  "description": "Perícias de engenharia, vistorias e avaliação de bens: prazos, honorários, evidências e laudo (ABNT NBR 14653).",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
