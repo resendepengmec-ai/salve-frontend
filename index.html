@@ -94,7 +94,7 @@
 </head>
 <body>
   <div class="card">
-    <div class="top" id="brandTop"><div class="brand">SAL<b>Ve</b></div><div class="sub">Sistema de Avaliação e Laudo de Ativos</div></div>
+    <div class="top" id="brandTop"><div class="brand">SAL<b>Ve</b></div><div class="sub">Sistema de Avaliação e Laudos Virtuais</div></div>
     <div class="body">
       <p class="lead">Acesse com sua conta Google autorizada para elaborar e assinar laudos de avaliação.</p>
 
@@ -127,9 +127,30 @@
       <div class="mh"><h2>Sobre o SALVe</h2><button class="x" id="btnFecha" aria-label="fechar">&times;</button></div>
       <div class="mb">
         <h4>O que é</h4>
-        <p>O <b>SALVe — Sistema de Avaliação e Laudo de Ativos</b> elabora laudos de avaliação de máquinas, equipamentos, instalações e bens industriais, seguindo a ABNT NBR 14653 — Parte 1 (procedimentos gerais) e Parte 5 (bens industriais).</p>
-        <h4>Como avalia</h4>
-        <p>Aplica o método de custos com depreciação por vários métodos, cada um com suas próprias tabelas e fórmula:</p>
+        <p>O <b>SALVe — Sistema de Avaliação e Laudos Virtuais</b> conduz perícias de engenharia e avaliações de bens de ponta a ponta: do aceite da nomeação ao laudo protocolado, num só ambiente, com prazos, honorários, evidências e memória de cálculo rastreáveis.</p>
+        <p>A arquitetura separa duas responsabilidades: o <b>núcleo</b> conhece o <b>processo</b>; cada <b>módulo técnico</b> conhece o <b>objeto</b> examinado.</p>
+
+        <h4>Núcleo pericial</h4>
+        <ul>
+          <li><b>Painel de processos</b> — situação, prazo mais próximo, honorários e próxima ação de cada perícia</li>
+          <li><b>Processo</b> — número no padrão CNJ (validado), tribunal, vara, partes, classe, objeto e cronologia</li>
+          <li><b>Prazos</b> — contagem em dias úteis ou corridos a partir da data de intimação, com prorrogação para o próximo dia útil, feriados e suspensões por tribunal e recesso de 20/dez a 20/jan</li>
+          <li><b>Honorários</b> — proposta montada por atividades, com o teto de custeio aplicado somente quando a norma está confirmada como vigente</li>
+          <li><b>Escopo e quesitos</b> — cada afirmação é classificada pela origem (alegação de parte, documento, constatação do perito), o que impede tratar alegação como fato provado</li>
+          <li><b>Diligências e evidências</b> — fotos, medições, documentos, amostras e ensaios anexados ao processo</li>
+          <li><b>Laudo</b> — auditoria de conformidade antes da entrega, geração em <span class="mono">.docx</span> e protocolo que congela a versão entregue</li>
+        </ul>
+
+        <h4>Módulos técnicos</h4>
+        <p>Os módulos são plugins: cada um traz a ficha do objeto, os checklists de vistoria, o catálogo de ensaios (sinalizando os que exigem cadeia de custódia), os fatores de complexidade que alimentam os honorários e suas próprias validações. Um módulo novo entra sem alterar o restante do sistema, e um módulo com manifesto inválido é desabilitado sozinho, sem derrubar o serviço.</p>
+        <ul>
+          <li><b>Perícia veicular</b> — veículos automotores: falhas mecânicas, vícios, danos e conformidade de reparos. Ensaios de compressão e estanqueidade, pressão de óleo, metrologia dimensional, análise de óleo e do líquido de arrefecimento, fractografia e metalografia.</li>
+          <li><b>Máquinas e equipamentos industriais</b> — falhas, segurança, conformidade e avaliação de valor. Análise de vibração, termografia, ultrassom e espessura, líquido penetrante e partículas magnéticas, dureza, análise de lubrificante e fractografia.</li>
+          <li><b>Elevadores</b> — transporte vertical: falhas, acidentes, manutenção e conformidade. Atuação do limitador de velocidade, ensaio de frenagem, medição de diâmetro de cabos e contagem de fios rompidos, análise laboratorial de componente.</li>
+        </ul>
+
+        <h4>Avaliação de valor (NBR 14653)</h4>
+        <p>Segue a ABNT NBR 14653 — Parte 1 (procedimentos gerais) e Parte 5 (bens industriais), aplicando o método de custos com depreciação por vários métodos, cada um com suas próprias tabelas e fórmula:</p>
         <ul>
           <li><b>De Caíres</b> — coeficiente de manutenção e regime de trabalho</li>
           <li><b>Ross-Heidecke</b> — estado de conservação</li>
@@ -137,9 +158,23 @@
           <li><b>De Cole</b> — soma dos dígitos</li>
           <li><b>Econômica</b> — fórmula editável por item</li>
         </ul>
-        <p>O valor adotado é consolidado a partir dos métodos escolhidos, com a dispersão entre eles à vista.</p>
-        <h4>Laudo e controle</h4>
-        <p>A ficha verifica a conformidade do laudo (requisitos mínimos, item 9 da Parte 1), registra a memória de cálculo de cada método e permite a assinatura do responsável técnico, com trilha de auditoria e acesso por conta Google autorizada.</p>
+        <p>O valor adotado é consolidado a partir dos métodos escolhidos, com a dispersão entre eles à vista, e a ficha verifica os requisitos mínimos do laudo (item 9 da Parte 1).</p>
+
+        <h4>Base normativa: nada se presume vigente</h4>
+        <p>Normas, tetos e regras de prazo são tratados como <b>dados versionados</b>, não como certezas embutidas no código. Todo registro nasce <b>a confirmar</b> e só passa a vigente com fonte oficial e data de verificação informadas — e apenas então entra em cálculo.</p>
+
+        <h4>Segurança e rastreabilidade</h4>
+        <ul>
+          <li><b>Acesso por convite</b> — login com conta Google; só entra quem o administrador cadastrou na lista de e-mails autorizados. Não há senha armazenada no sistema.</li>
+          <li><b>Sessão curta</b> — o token de sessão expira em 8 horas e é revalidado a cada requisição contra o cadastro do usuário.</li>
+          <li><b>Revogação imediata</b> — o administrador encerra sessões de um usuário ou desativa a conta, e o acesso cai no próximo acesso, sem esperar o vencimento.</li>
+          <li><b>Papéis</b> — administrador vê todo o sistema; o engenheiro enxerga apenas os seus processos, que pode compartilhar nominalmente com outros.</li>
+          <li><b>Assinatura das operações</b> — cada criação, edição e exclusão recebe uma assinatura HMAC-SHA256 do conteúdo, verificável depois: qualquer alteração posterior ao registro quebra a conferência.</li>
+          <li><b>Trilha de auditoria</b> — quem fez, o que fez, em qual registro, de qual endereço e quando, consultável pelo administrador.</li>
+          <li><b>Integridade das evidências</b> — cada arquivo anexado guarda o hash SHA-256 do conteúdo recebido.</li>
+          <li><b>Laudo protocolado é imutável</b> — o protocolo exige auditoria sem achado grave, congela um retrato do laudo e grava o hash SHA-256 dessa versão.</li>
+          <li><b>Tráfego e origem</b> — comunicação por HTTPS e API restrita às origens autorizadas.</li>
+        </ul>
       </div>
     </div>
   </div>
