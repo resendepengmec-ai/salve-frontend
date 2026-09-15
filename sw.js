@@ -1,5 +1,5 @@
-const CACHE = "salve-v2";
-const SHELL = ["./","index.html","contratos.html","ficha-avaliacao.html","bens.html","admin.html",
+const CACHE = "salve-v3";
+const SHELL = ["./","index.html","contratos.html","ficha-avaliacao.html","bens.html","admin.html","processos.html","processo.html","normas.html","pericia.css","pericia-core.js",
   "manifest.webmanifest","icon-192.png","icon-512.png","favicon-48.png","apple-touch-icon.png"];
 
 self.addEventListener("install", e => {

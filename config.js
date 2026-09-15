@@ -4,6 +4,7 @@
  */
 window.SALVE_BACKEND_URL = 'https://salve-backend.onrender.com';
 
-// Chave do token JWT no localStorage. O app do SALVe herdou a auth do SGM,
-// que guarda o token em 'smm_auth'.
-window.SALVE_TOKEN_KEY = 'smm_auth';
+// Chave da sessão no localStorage. O login (index.html) grava
+// localStorage['salve_api'] = { base, token }; a ficha lê o campo .token.
+// (Antes apontava para 'smm_auth', herdado do SGM — causa dos 401 na ficha.)
+window.SALVE_TOKEN_KEY = 'salve_api';

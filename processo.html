@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SALVe — Processo</title>
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#2C383D">
+<link rel="icon" href="favicon-48.png"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>window.SALVE_API = "https://salve-backend.onrender.com";</script>
+<link rel="stylesheet" href="pericia.css">
+</head>
+<body>
+<div id="nav"></div>
+<div class="wrap" id="wrap" style="display:none">
+  <p style="margin:0 0 10px"><a href="processos.html" class="small" style="color:var(--blue);font-weight:600;text-decoration:none">‹ Todos os processos</a></p>
+  <div id="sema"></div>
+  <nav class="tabs" id="tabs" aria-label="Etapas do processo"></nav>
+  <div id="panes"></div>
+</div>
+<div class="gate" id="gate" style="display:none"></div>
+
+<script src="pericia-core.js"></script>
+<script>
+"use strict";
+const { $, esc, dBR, brl, hoje, toast, api, post, del, baixar, lerArquivo, montarNav, refs, optHTML,
+  origemHTML, lerOrigem, citar, pillClasse, editorLinhas, schemaHTML, lerSchema, docPainel, pillSit, pillStatus } = SP;
+const PID = new URLSearchParams(location.search).get("id");
+let D = null, R = null, MODS = {}, BENS = [], TAB = new URLSearchParams(location.search).get("aba") || "geral";
+const ED = {};   // editores de linhas vivos
+const val = (id) => ($(id) || {}).value ?? "";
+const P = () => D.proc;
+const url = (s) => `/api/pericia/processos/${PID}${s || ""}`;
+
+const TABS = [
+  ["geral", "Visão geral"], ["ident", "Identificação"], ["crono", "Cronologia"], ["escopo", "Escopo"],
+  ["quesitos", "Quesitos"], ["aceite", "Nomeação e aceite"], ["honor", "Honorários"], ["prazos", "Prazos"],
+  ["dilig", "Diligência"], ["objeto", "Objeto e checklist"], ["evid", "Evidências"], ["analise", "Análise"],
+  ["laudo", "Laudo"], ["pos", "Pós-laudo"], ["fin", "Financeiro"],
+];
+const contagem = () => ({ crono: D.eventos.length, quesitos: D.quesitos.length, prazos: D.prazos.length, dilig: D.diligencias.length,
+  objeto: D.objetos.length, evid: D.evidencias.length, analise: D.analises.length, laudo: D.laudos.length, pos: D.esclarecimentos.length });
+
+async function iniciar() {
+  if (!PID) { location.href = "processos.html"; return; }
+  try { await montarNav("processos.html"); } catch (e) { return; }
+  R = await refs();
+  await recarregar();
+  $("wrap").style.display = "block";
+}
+async function recarregar() {
+  try { D = await api(url()); }
+  catch (e) { $("gate").style.display = "block"; $("gate").innerHTML = `<h3>Processo indisponível</h3><p>${esc(e.message)}</p>`; return; }
+  const ids = new Set([...(P().modulos || []), ...D.objetos.map(o => o.moduloId)]);
+  await Promise.all([...ids].filter(i => !MODS[i]).map(async i => { try { MODS[i] = await api("/api/modulos/" + i); } catch (e) {} }));
+  if (!BENS.length) { try { BENS = await api("/api/salve/bens"); } catch (e) { BENS = []; } }
+  document.title = "SALVe — " + (P().numero || "Processo");
+  renderSema(); renderTabs(); mostrar(TAB);
+}
+async function salvarProc(parcial, msg) {
+  try { await post("/api/pericia/processos", { id: PID, ...parcial }); toast(msg || "Alterações salvas."); await recarregar(); return true; }
+  catch (e) { toast(e.message, true); return false; }
+}
+async function salvarFilho(col, body, msg) {
+  try { const r = await post(url("/" + col), body); toast(msg || "Registro salvo."); await recarregar(); return r; }
+  catch (e) { toast(e.message, true); return null; }
+}
+async function excluirFilho(col, id) {
+  if (!confirm("Excluir este registro?")) return;
+  try { await del(url(`/${col}/${id}`)); toast("Registro excluído."); await recarregar(); } catch (e) { toast(e.message, true); }
+}
+async function fluxo(cmd, body) {
+  try { return await post(url("/fluxos/" + cmd), body || {}); } catch (e) { toast(e.message, true); return null; }
+}
+
+// ── cabeçalho (semáforo) ──
+function renderSema() {
+  const r = D.resumo, st = r.status, a = r.proximaAcao;
+  $("sema").innerHTML = `<div class="sema ${st.cor}"><div class="luz"></div><div class="corpo">
+    <div><h1 class="mono">${esc(P().numero || "Processo sem número")}</h1>
+      <div class="small muted">${esc([P().tribunal, P().comarca, P().vara].filter(Boolean).join(" · ") || "Tribunal e vara não informados")}</div>
+      <div class="st" style="margin-top:6px">${st.icone} ${esc(st.rotulo)}</div>
+      <div class="small muted" style="margin-top:4px">${esc(P().objeto || "")}</div></div>
+    <div><div class="acao${a.urgente ? " urg" : ""}"><b>Próxima ação do perito</b>${esc(a.acao)}
+      ${a.comando && CMD_TAB[a.comando] ? `<div style="margin-top:6px"><button class="btn sm" data-ir="${CMD_TAB[a.comando]}">Ir para ${esc((TABS.find(t => t[0] === CMD_TAB[a.comando]) || [])[1])}</button></div>` : ""}</div>
+      <div class="row small" style="margin-top:8px;gap:14px">
+        <span>Prazo do laudo: <b>${dBR(r.prazoLaudo)}</b></span><span>Diligência: <b>${dBR(r.dataDiligencia)}</b></span>
+        <span>Honorários: <b class="mono">${r.honorariosArbitrados ? brl(r.honorariosArbitrados) + " arb." : r.honorariosPropostos ? brl(r.honorariosPropostos) + " prop." : "—"}</b></span>
+        <span>Pendências: <b>${r.pendencias}</b></span></div></div></div></div>`;
+  $("sema").querySelectorAll("[data-ir]").forEach(b => b.onclick = () => mostrar(b.dataset.ir));
+}
+const CMD_TAB = { analisar: "geral", atualizar: "crono", aceite: "aceite", honorarios: "honor", agendar: "dilig", diligencia: "objeto", laudo: "laudo", quesitos: "quesitos", pagamento: "fin" };
+
+function renderTabs() {
+  const c = contagem();
+  $("tabs").innerHTML = TABS.map(([k, t]) => `<button class="tab${k === TAB ? " on" : ""}" data-t="${k}">${esc(t)}${c[k] ? `<span class="n">${c[k]}</span>` : ""}</button>`).join("");
+  $("tabs").querySelectorAll(".tab").forEach(b => b.onclick = () => mostrar(b.dataset.t));
+}
+function mostrar(t) {
+  TAB = t;
+  history.replaceState(null, "", `?id=${encodeURIComponent(PID)}&aba=${t}`);
+  $("tabs").querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  $("panes").innerHTML = `<div class="pane on" id="pane"></div>`;
+  (RENDER[t] || (() => {}))($("pane"));
+}
+const card = (titulo, corpo, dir) => `<div class="card"><div class="ch"><h2>${esc(titulo)}</h2>${dir || ""}</div><div class="cb">${corpo}</div></div>`;
+const fld = (id, rot, v, tipo, extra) => `<div class="fld${extra || ""}"><label for="${id}">${esc(rot)}</label>${tipo === "textarea" ? `<textarea id="${id}">${esc(v ?? "")}</textarea>` : `<input id="${id}" type="${tipo || "text"}" value="${esc(v ?? "")}"${tipo === "number" ? ' step="any"' : ""}>`}</div>`;
+const sel = (id, rot, lista, v, extra) => `<div class="fld${extra || ""}"><label for="${id}">${esc(rot)}</label><select id="${id}">${optHTML(lista, v, "—")}</select></div>`;
+const SIM_NAO = [{ id: "sim", label: "Sim" }, { id: "nao", label: "Não" }, { id: "a_verificar", label: "A verificar" }];
+const nomeMod = (id) => (MODS[id] && MODS[id].nome) || id;
+const rotEv = (id) => { const e = D.evidencias.find(x => x.id === id); return e ? e.codigo : "?"; };
+const multiEv = (px, marcados) => `<div class="row small" id="${px}" style="gap:10px">${D.evidencias.length ? D.evidencias.map(e => `<label class="row" style="gap:4px"><input type="checkbox" value="${esc(e.id)}"${(marcados || []).includes(e.id) ? " checked" : ""}> ${esc(e.codigo)} <span class="muted">${esc((e.legenda || e.descricao || "").slice(0, 30))}</span></label>`).join("") : '<span class="muted">Nenhuma evidência cadastrada.</span>'}</div>`;
+const lerMulti = (px) => [...document.querySelectorAll(`#${px} input:checked`)].map(i => i.value);
+
+const RENDER = {};
+
+// ── Visão geral ──
+RENDER.geral = (el) => {
+  const pend = D.pendencias;
+  el.innerHTML = card("Status e pendências", `
+    ${D.resumo.status.motivos.length ? `<div class="${D.resumo.status.cor === "vermelho" ? "blq" : "aviso"}"><b>${D.resumo.status.icone} ${esc(D.resumo.status.rotulo)}</b><ul style="margin:6px 0 0 18px;padding:0">${D.resumo.status.motivos.map(m => `<li>${esc(m)}</li>`).join("")}</ul></div>` : ""}
+    <div class="tscroll"><table><thead><tr><th>Informação ausente</th><th>Impacto</th><th>Providência</th><th></th></tr></thead><tbody>
+    ${pend.length ? pend.map(p => `<tr><td>${esc(p.informacao)}</td><td class="small">${esc(p.impacto || "")}</td><td class="small">${esc(p.providencia || "")}</td>
+      <td>${p.derivada ? '<span class="pill neu">automática</span>' : `<button class="btn sm ghost" data-res="${esc(p.id)}">Resolvida</button>`}</td></tr>`).join("") : '<tr><td colspan="4" class="empty">Sem pendências registradas.</td></tr>'}
+    </tbody></table></div>
+    <h3 class="small" style="margin:16px 0 6px">Registrar pendência manual</h3>
+    <div class="grid g3">${fld("pdInfo", "Informação ausente", "")}${fld("pdImp", "Impacto", "")}
+      ${sel("pdProv", "Providência recomendada", ["Peticionar", "Solicitar documento", "Verificar objeto", "Realizar ensaio", "Aguardar decisão", "Outra"], "")}</div>
+    <div class="row end" style="margin-top:10px"><button class="btn ghost" id="pdAdd">Adicionar pendência</button></div>`,
+    `<div class="row"><button class="btn ghost" id="bAtualizar">Atualizar processo</button><button class="btn" id="bAnalisar">Analisar processo</button></div>`)
+    + `<div id="saidaAnalise"></div>`;
+  el.querySelectorAll("[data-res]").forEach(b => b.onclick = () => salvarProc({ pendencias: (P().pendencias || []).map(p => p.id === b.dataset.res ? { ...p, resolvida: true } : p) }, "Pendência resolvida."));
+  $("pdAdd").onclick = () => { if (!val("pdInfo").trim()) return toast("Descreva a informação ausente.", true);
+    salvarProc({ pendencias: [...(P().pendencias || []), { informacao: val("pdInfo"), impacto: val("pdImp"), providencia: val("pdProv") }] }, "Pendência registrada."); };
+  $("bAnalisar").onclick = () => analisar("analisar");
+  $("bAtualizar").onclick = () => analisar("atualizar");
+};
+async function analisar(cmd) {
+  const out = await fluxo(cmd); if (!out) return;
+  const a = out.resultado, id = a.identificacao, NL = R.naoLocalizado;
+  const v = (x) => x ? esc(x) : `<span class="nl">${esc(NL)}</span>`;
+  const bl = (t, b) => `<div class="fld"><label>${esc(t)}</label><div>${b.origem === null ? `<span class="nl">${esc(NL)}</span>` : esc(b.texto) + `<div class="small muted">Fonte: ${esc(b.origem)}</div>`}</div></div>`;
+  $("saidaAnalise").innerHTML = card(cmd === "atualizar" ? "Atualização do processo" : "Auditoria do processo", `
+    ${cmd === "atualizar" ? `<div class="aviso">Novos eventos desde a última análise: <b>${(a.novosEventos || []).length}</b>${a.statusAnterior ? ` · status anterior: ${esc(a.statusAnterior.icone + " " + a.statusAnterior.rotulo)}` : ""}</div>` : ""}
+    <h3>Identificação</h3><div class="grid g3 small">
+      <div>Processo: <b>${v(id.processo)}</b></div><div>Tribunal: <b>${v(id.tribunal)}</b></div><div>Vara: <b>${v(id.vara)}</b></div>
+      <div>Juiz(a): <b>${v(id.juiz)}</b></div><div>Nomeação: <b>${id.dataNomeacao ? dBR(id.dataNomeacao) : v(null)}</b></div><div>Valor da causa: <b>${id.valorCausa ? brl(id.valorCausa) : v(null)}</b></div>
+      <div class="span2">Objeto: <b>${v(id.objeto)}</b></div><div>Localização: <b>${v(id.localizacaoObjeto)}</b></div>
+      <div class="spanall">Partes: ${id.partes.length ? id.partes.map(p => `${esc(p.polo)}: <b>${esc(p.nome || "")}</b> (gratuidade: ${esc(p.gratuidade || "não verificada")})`).join("; ") : v(null)}</div>
+      <div>Data da análise: <b>${dBR(id.dataAnalise)}</b></div></div>
+    <h3>Cronologia processual</h3><div class="tscroll"><table><thead><tr><th>Data</th><th>Evento/ID</th><th>Documento</th><th>Conteúdo relevante</th><th>Consequência para o perito</th></tr></thead><tbody>
+    ${a.cronologia.length ? a.cronologia.map(e => `<tr${(a.novosEventos || []).some(n => n.data === e.data && n.conteudo === e.conteudo) ? ' style="background:var(--blue-bg)"' : ""}><td>${dBR(e.data)}</td><td class="mono">${esc(e.evento)}</td><td>${esc(e.documento || "")}</td><td>${esc(e.conteudo || "")} ${pillClasse(e.classe)}</td><td>${esc(e.consequencia || "")}</td></tr>`).join("") : `<tr><td colspan="5" class="empty">Nenhum evento cadastrado.</td></tr>`}</tbody></table></div>
+    <h3>Escopo da controvérsia</h3><div class="grid g2">${bl("Alegação do autor", a.escopo.alegacaoAutor)}${bl("Alegação da parte ré", a.escopo.alegacaoReu)}${bl("Pontos incontroversos", a.escopo.incontroversos)}${bl("Pontos controvertidos", a.escopo.controvertidos)}${bl("Objeto determinado pelo Juízo", a.escopo.objetoJuizo)}${bl("Questões submetidas à perícia", a.escopo.questoesPericia)}</div>
+    <h3>Quesitos (${a.quesitos.length})</h3>${a.quesitos.map(q => `<div class="q"><b>${esc((R.autoresQuesito.find(x => x.id === q.autor) || {}).label || q.autor)} — ${esc(q.numero || "")}</b><div class="txt">${esc(q.texto)}</div><div class="small muted">Fonte: ${esc(q.origem)}</div></div>`).join("") || `<p class="nl">${esc(NL)}</p>`}
+    <h3>Auditoria da nomeação</h3><table><tbody>${a.auditoria.map(x => `<tr><td>${esc(x.item)}</td><td>${x.situacao === NL ? `<span class="nl">${esc(NL)}</span>` : esc(x.situacao)}</td></tr>`).join("")}</tbody></table>
+    <h3>Status do processo</h3><p>${pillStatus(a.status)}</p>
+    <h3>Ação recomendada ao perito</h3><div class="acao">${esc(a.proximaAcao.acao)}</div>`,
+    `<button class="btn sm ghost" id="bCopiarAnalise">Copiar como texto</button>`);
+  $("bCopiarAnalise").onclick = async () => { await navigator.clipboard.writeText($("saidaAnalise").innerText); toast("Análise copiada."); };
+  renderSema();
+}
+
+// ── Identificação ──
+RENDER.ident = (el) => {
+  const p = P();
+  const mods = R.modulos;
+  el.innerHTML = card("Dados do processo", `<div class="grid g3">
+      ${fld("iNumero", "Número (CNJ)", p.numero)}${sel("iTribunal", "Tribunal", ["TJGO", "TJDFT", "Outro"], p.tribunal)}${fld("iComarca", "Comarca / circunscrição", p.comarca)}
+      ${fld("iVara", "Vara", p.vara)}${fld("iJuiz", "Juiz(a)", p.juiz)}${fld("iClasse", "Classe processual", p.classe)}
+      ${fld("iValor", "Valor da causa (R$)", p.valorCausa, "number")}${fld("iNomeacao", "Data da nomeação", p.dataNomeacao, "date")}${fld("iNomeacaoId", "ID da decisão de nomeação", p.nomeacaoId)}
+      ${fld("iPrazo", "Prazo concedido (texto da decisão)", p.prazoConcedido)}${fld("iLocal", "Localização conhecida do objeto", p.localizacaoObjeto, "text", " span2")}
+      ${fld("iObjeto", "Objeto da perícia", p.objeto, "textarea", " spanall")}
+      <div class="fld spanall"><label>Módulos técnicos do objeto</label><div class="row" id="iMods">${mods.map(m => `<label class="row small" style="gap:4px"><input type="checkbox" value="${esc(m.id)}"${(p.modulos || []).includes(m.id) ? " checked" : ""}> ${esc(m.nome)}</label>`).join("")}</div></div>
+    </div>`) +
+    card("Partes, advogados, gratuidade e assistentes técnicos", `<div id="edPartes"></div>`) +
+    card("Acesso de outros usuários", `<p class="small muted">Dono: ${esc(p._ownerEmail || "")}</p>
+      <div class="row">${(p.acessos || []).map(e => `<span class="pill inf">${esc(e)} ${D.podeGerir ? `<button class="btn sm ghost" style="padding:0 4px;border:0" data-rmac="${esc(e)}" aria-label="Remover acesso">✕</button>` : ""}</span>`).join("") || '<span class="muted small">Somente o dono e administradores.</span>'}</div>
+      ${D.podeGerir ? `<div class="row" style="margin-top:10px"><input id="acEmail" placeholder="e-mail do colaborador" style="max-width:280px"><button class="btn ghost" id="acAdd">Liberar acesso</button></div>` : ""}`) +
+    `<div class="row end"><button class="btn danger" id="bExcluir"${D.podeGerir ? "" : " disabled"}>Excluir processo</button><button class="btn" id="bSalvarIdent">Salvar identificação</button></div>`;
+  ED.partes = editorLinhas($("edPartes"), [
+    { k: "polo", rot: "Polo", tipo: "select", opts: [{ id: "autor", label: "Autor" }, { id: "reu", label: "Réu" }, { id: "terceiro", label: "Terceiro" }, { id: "mp", label: "Ministério Público" }], w: "120px" },
+    { k: "nome", rot: "Nome" }, { k: "advogado", rot: "Advogado(a) / OAB" },
+    { k: "gratuidade", rot: "Gratuidade", tipo: "select", w: "150px", opts: [{ id: "deferida", label: "Deferida" }, { id: "indeferida", label: "Indeferida" }, { id: "pendente", label: "Pedido pendente" }, { id: "nao_requerida", label: "Não requerida" }, { id: "nao_localizada", label: "Não localizada" }] },
+    { k: "gratuidadeId", rot: "ID decisão", w: "110px" }, { k: "assistenteNome", rot: "Assistente técnico" }, { k: "assistenteContato", rot: "Contato do assistente" },
+  ], (p.partes || []).map(x => ({ ...x, assistenteNome: x.assistente?.nome, assistenteContato: x.assistente?.contato })), { rotuloAdd: "Adicionar parte" });
+  $("bSalvarIdent").onclick = () => salvarProc({
+    numero: val("iNumero").trim(), tribunal: val("iTribunal"), comarca: val("iComarca"), vara: val("iVara"), juiz: val("iJuiz"), classe: val("iClasse"),
+    valorCausa: val("iValor") === "" ? null : Number(val("iValor")), dataNomeacao: val("iNomeacao"), nomeacaoId: val("iNomeacaoId"),
+    prazoConcedido: val("iPrazo"), localizacaoObjeto: val("iLocal"), objeto: val("iObjeto"),
+    modulos: [...document.querySelectorAll("#iMods input:checked")].map(i => i.value),
+    partes: ED.partes.get().map(({ assistenteNome, assistenteContato, ...x }) => ({ ...x, assistente: { nome: assistenteNome || "", contato: assistenteContato || "" } })),
+  }, "Identificação salva.");
+  el.querySelectorAll("[data-rmac]").forEach(b => b.onclick = async () => { try { await del(url("/acessos/" + encodeURIComponent(b.dataset.rmac))); await recarregar(); } catch (e) { toast(e.message, true); } });
+  if ($("acAdd")) $("acAdd").onclick = async () => { try { await post(url("/acessos"), { email: val("acEmail") }); toast("Acesso liberado."); await recarregar(); } catch (e) { toast(e.message, true); } };
+  $("bExcluir").onclick = async () => { if (!confirm("Excluir o processo e TODOS os registros e arquivos vinculados? Esta ação não pode ser desfeita.")) return;
+    try { await del(url()); location.href = "processos.html"; } catch (e) { toast(e.message, true); } };
+};
+
+// ── Cronologia ──
+RENDER.crono = (el) => {
+  const ev = D.eventos.slice().sort((a, b) => String(a.data).localeCompare(String(b.data)));
+  el.innerHTML = card("Cronologia processual", `<div class="tscroll"><table><thead><tr><th>Data</th><th>Evento/ID</th><th>Documento</th><th>Conteúdo relevante</th><th>Consequência para o perito</th><th>Natureza</th><th></th></tr></thead><tbody>
+    ${ev.length ? ev.map(e => `<tr><td>${dBR(e.data)}</td><td class="mono">${esc(e.eventoId || "")}</td><td>${esc(e.documento || "")}<div class="small muted">${citar(e.origem)}</div></td><td>${esc(e.conteudo)}</td><td>${esc(e.consequencia || "")}</td><td>${pillClasse(e.origem?.classe)}</td>
+      <td class="row"><button class="btn sm ghost" data-ed="${esc(e.id)}">Editar</button><button class="btn sm danger" data-rm="${esc(e.id)}" aria-label="Excluir">✕</button></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Registre as movimentações relevantes, sem omitir decisões relacionadas à perícia.</td></tr>'}
+    </tbody></table></div>`) + `<div id="formEv"></div>`;
+  const form = (e) => {
+    e = e || {};
+    $("formEv").innerHTML = card(e.id ? "Editar evento" : "Novo evento", `<div class="grid g4">
+      ${fld("eData", "Data", e.data, "date")}${fld("eId", "Evento / ID", e.eventoId)}${fld("eDoc", "Documento", e.documento, "text", " span2")}
+      ${fld("eCont", "Conteúdo relevante", e.conteudo, "textarea", " span2")}${fld("eCons", "Consequência para o perito", e.consequencia, "textarea", " span2")}</div>
+      ${origemHTML("eOr", e.origem || { documentoId: e.eventoId, data: e.data })}
+      <div class="row end" style="margin-top:10px">${e.id ? '<button class="btn ghost" id="eCanc">Cancelar</button>' : ""}<button class="btn" id="eSalvar">Salvar evento</button></div>`);
+    $("eSalvar").onclick = () => salvarFilho("eventos", { id: e.id, data: val("eData"), eventoId: val("eId"), documento: val("eDoc"), conteudo: val("eCont"), consequencia: val("eCons"), origem: lerOrigem("eOr") });
+    if ($("eCanc")) $("eCanc").onclick = () => form();
+  };
+  form();
+  el.querySelectorAll("[data-ed]").forEach(b => b.onclick = () => { form(D.eventos.find(x => x.id === b.dataset.ed)); $("formEv").scrollIntoView({ behavior: "smooth" }); });
+  el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => excluirFilho("eventos", b.dataset.rm));
+};
+
+// ── Escopo ──
+const ESCOPO = [["alegacaoAutor", "Alegação do autor", ["alegacao_parte"]], ["alegacaoReu", "Alegação da parte ré", ["alegacao_parte"]],
+  ["incontroversos", "Pontos incontroversos"], ["controvertidos", "Pontos controvertidos"], ["objetoJuizo", "Objeto determinado pelo Juízo", ["decisao_juizo"]],
+  ["questoesPericia", "Questões efetivamente submetidas à perícia"]];
+RENDER.escopo = (el) => {
+  const e = P().escopo || {};
+  el.innerHTML = `<div class="aviso">Alegações de parte são sempre registradas como alegação — nunca como fato comprovado.</div>` +
+    ESCOPO.map(([k, t, cl]) => card(t, `<div class="fld"><textarea id="s_${k}" rows="3">${esc(e[k]?.texto || "")}</textarea></div>
+      ${origemHTML("so_" + k, e[k]?.origem, { classes: cl, padrao: cl ? cl[0] : "fato_autos" })}`)).join("") +
+    `<div class="row end"><button class="btn" id="bEscopo">Salvar escopo</button></div>`;
+  $("bEscopo").onclick = () => {
+    const escopo = {};
+    ESCOPO.forEach(([k]) => { const t = val("s_" + k).trim(); if (t) escopo[k] = { texto: t, origem: lerOrigem("so_" + k) }; });
+    salvarProc({ escopo }, "Escopo salvo.");
+  };
+};
+
+// ── Quesitos ──
+RENDER.quesitos = (el) => {
+  const grupos = R.autoresQuesito.map(a => ({ a, qs: D.quesitos.filter(q => q.autor === a.id) })).filter(g => g.qs.length);
+  const pend = D.quesitos.filter(q => q.status !== "respondido").length;
+  el.innerHTML = card(`Quesitos (${D.quesitos.length}; ${pend} pendente${pend === 1 ? "" : "s"})`, grupos.length ? grupos.map(g => `<h3 style="margin:10px 0 8px">${esc(g.a.label)}</h3>` +
+    g.qs.map(q => `<div class="q"><div class="row" style="justify-content:space-between"><b>Quesito ${esc(q.numero || "")}</b>
+        <span class="row">${q.natureza === "juridico" ? '<span class="pill at">jurídico</span>' : q.natureza === "misto" ? '<span class="pill at">misto</span>' : ""}<span class="pill ${q.status === "respondido" ? "ok" : "no"}">${q.status === "respondido" ? "respondido" : "pendente"}</span>
+        <button class="btn sm ghost" data-ed="${esc(q.id)}">Editar / responder</button><button class="btn sm danger" data-rm="${esc(q.id)}" aria-label="Excluir">✕</button></span></div>
+      <div class="small muted">PERGUNTA — fonte: ${citar(q.origem)}</div><div class="txt">${esc(q.texto)}</div>
+      ${q.resposta ? `<div class="small muted">RESPOSTA</div><div class="txt">${esc(q.resposta)}</div>` : ""}
+      ${q.fundamentacao ? `<div class="small muted">FUNDAMENTAÇÃO TÉCNICA</div><div class="txt">${esc(q.fundamentacao)}</div>` : ""}</div>`).join("")).join("")
+    : '<p class="empty">Transcreva integralmente cada quesito do Juízo, do autor, do réu e do Ministério Público.</p>') + `<div id="formQ"></div>`;
+  const form = (q) => {
+    q = q || {};
+    $("formQ").innerHTML = card(q.id ? `Quesito ${q.numero || ""} — ${(R.autoresQuesito.find(a => a.id === q.autor) || {}).label || ""}` : "Novo quesito", `<div class="grid g4">
+      ${sel("qAutor", "Formulado por", R.autoresQuesito, q.autor)}${fld("qNum", "Número", q.numero)}
+      ${sel("qNat", "Natureza", [{ id: "tecnico", label: "Técnico" }, { id: "juridico", label: "Jurídico" }, { id: "misto", label: "Misto" }], q.natureza || "tecnico")}<div></div>
+      ${fld("qTexto", "Pergunta — transcrição integral", q.texto, "textarea", " spanall")}
+      ${fld("qResp", "Resposta objetiva", q.resposta, "textarea", " spanall")}
+      ${fld("qFund", "Fundamentação técnica (quando necessária)", q.fundamentacao, "textarea", " spanall")}
+      <div class="fld spanall"><label>Evidências que sustentam a resposta</label>${multiEv("qEv", q.evidencias)}</div></div>
+      <p class="small muted">Quesito jurídico: o laudo registra automaticamente que a questão extrapola a competência técnica do perito; responda apenas o aspecto de engenharia, se houver. Evite “sim” ou “não” sem fundamentação.</p>
+      ${origemHTML("qOr", q.origem, { classes: ["fato_autos", "decisao_juizo"], padrao: q.autor === "juizo" ? "decisao_juizo" : "fato_autos" })}
+      <div class="row end" style="margin-top:10px">${q.id ? '<button class="btn ghost" id="qCanc">Cancelar</button>' : ""}<button class="btn" id="qSalvar">Salvar quesito</button></div>`);
+    $("qSalvar").onclick = () => salvarFilho("quesitos", { id: q.id, autor: val("qAutor"), numero: val("qNum"), natureza: val("qNat"), texto: val("qTexto"),
+      resposta: val("qResp"), fundamentacao: val("qFund"), evidencias: lerMulti("qEv"), origem: lerOrigem("qOr") });
+    if ($("qCanc")) $("qCanc").onclick = () => form();
+  };
+  form();
+  el.querySelectorAll("[data-ed]").forEach(b => b.onclick = () => { form(D.quesitos.find(x => x.id === b.dataset.ed)); $("formQ").scrollIntoView({ behavior: "smooth" }); });
+  el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => excluirFilho("quesitos", b.dataset.rm));
+};
+
+// ── Nomeação e aceite ──
+RENDER.aceite = (el) => {
+  const a = P().auditoria || {}, ac = P().aceite || {};
+  el.innerHTML = card("Auditoria da nomeação", `<div class="grid g3">
+      ${sel("aComp", "Compatível com Engenharia Mecânica?", SIM_NAO, a.compatibilidade)}${sel("aImp", "Há impedimento ou suspeição?", SIM_NAO, a.impedimento)}
+      ${sel("aConf", "Há conflito de interesses?", SIM_NAO, a.conflito)}${sel("aArt", "Necessidade de ART", [{ id: "necessaria", label: "Necessária" }, { id: "dispensada", label: "Não necessária" }, { id: "a_verificar", label: "A verificar" }], a.art)}
+      ${fld("aDesl", "Necessidade de deslocamento", a.deslocamento)}${fld("aEstado", "Estado de conservação / funcionamento", a.estadoObjeto)}
+      ${fld("aDocs", "Documentos ainda necessários", a.documentosNecessarios, "textarea", " spanall")}${fld("aObs", "Observações", a.observacoes, "textarea", " spanall")}</div>
+      <div class="row end" style="margin-top:10px"><button class="btn" id="aSalvar">Salvar auditoria</button></div>`) +
+    card("Manifestação de aceite", `<div class="grid g2">${fld("acReq", "Requerimentos adicionais estritamente necessários (um por linha)", (ac.requerimentos || []).join("\n"), "textarea", " spanall")}</div>
+      <div class="row end" style="margin: 10px 0"><button class="btn ghost" id="acReqS">Salvar requerimentos</button><button class="btn" id="acGerar">Fazer aceite</button></div><div id="acDoc"></div>`) +
+    card("Registro de protocolo", `<p class="small">${ac.protocoladoEm ? `Aceite protocolado em <b>${dBR(ac.protocoladoEm)}</b>${ac.documentoId ? ` (ID ${esc(ac.documentoId)})` : ""}.` : "Aceite ainda não protocolado."}</p>
+      <div class="grid g3">${fld("pData", "Data do protocolo", ac.protocoladoEm || hoje(), "date")}${fld("pId", "ID do documento protocolado", ac.documentoId)}<div class="fld"><label>&nbsp;</label><button class="btn" id="pSalvar">Registrar protocolo do aceite</button></div></div>`);
+  $("aSalvar").onclick = () => salvarProc({ auditoria: { compatibilidade: val("aComp"), impedimento: val("aImp"), conflito: val("aConf"), art: val("aArt"),
+    deslocamento: val("aDesl"), estadoObjeto: val("aEstado"), documentosNecessarios: val("aDocs"), observacoes: val("aObs") } }, "Auditoria salva.");
+  $("acReqS").onclick = () => salvarProc({ aceite: { ...ac, requerimentos: val("acReq").split("\n").map(s => s.trim()).filter(Boolean) } });
+  const gerar = async (rasc) => { const out = await fluxo("aceite", { rascunho: rasc }); if (out) docPainel($("acDoc"), out, PID, { rascunho: () => gerar(true) }); };
+  $("acGerar").onclick = () => gerar(false);
+  $("pSalvar").onclick = async () => { try { await post(url("/protocolos"), { tipo: "aceite", data: val("pData"), documentoId: val("pId") }); toast("Protocolo registrado."); await recarregar(); } catch (e) { toast(e.message, true); } };
+};
+
+// ── Honorários ──
+RENDER.honor = (el) => {
+  const h = P().honorarios || {};
+  const fatores = Object.values(MODS).filter(m => (P().modulos || []).includes(m.id)).flatMap(m => (m.fatoresComplexidade || []).map(f => ({ ...f, mod: m.nome })));
+  const prop = h.proposta || {};
+  el.innerHTML = card("Quem custeia", `<div class="grid g4">
+      ${sel("hReq", "Quem requereu a prova", [{ id: "autor", label: "Parte autora" }, { id: "reu", label: "Parte ré" }, { id: "ambas", label: "Ambas as partes" }, { id: "juizo", label: "Determinada de ofício" }, { id: "mp", label: "Ministério Público" }], h.requerente)}
+      ${sel("hAnt", "Quem antecipa os honorários", [{ id: "autor", label: "Parte autora" }, { id: "reu", label: "Parte ré" }, { id: "rateio", label: "Rateio entre as partes" }, { id: "custeio_publico", label: "Custeio público (gratuidade)" }, { id: "a_definir", label: "A definir pelo Juízo" }], h.antecipante)}
+      ${fld("hDec", "ID da decisão sobre honorários", h.decisaoId)}${fld("hNat", "Natureza da perícia (para teto)", h.natureza)}</div>`) +
+    card("Plano de trabalho e valor técnico", `
+      <div class="grid g3">${fld("hVh", "Valor-hora de engenharia (R$)", h.valorHora, "number")}</div>
+      <h3 class="small" style="margin:14px 0 6px">Atividades e horas estimadas</h3><div id="edAtiv"></div>
+      <h3 class="small" style="margin:14px 0 6px">Despesas previstas (deslocamento, ensaios, laboratório)</h3><div id="edDesp"></div>
+      ${fatores.length ? `<h3 class="small" style="margin:14px 0 6px">Fatores de complexidade</h3><div class="row" id="hFat">${fatores.map(f => `<label class="row small" style="gap:4px"><input type="checkbox" value="${esc(f.id)}"${(h.fatores || []).includes(f.id) ? " checked" : ""}> ${esc(f.rotulo)}</label>`).join("")}</div>` : ""}
+      <div class="grid g2" style="margin-top:12px">${fld("hCron", "Cronograma", h.cronograma, "textarea")}${fld("hJust", "Justificativa técnica (sucinta e proporcional)", h.justificativa, "textarea")}</div>
+      <div class="row" style="margin-top:12px;gap:18px"><span>Horas: <b class="mono">${(prop.horas || 0).toLocaleString("pt-BR")}</b></span><span>Honorários: <b class="mono">${brl(prop.honorarios)}</b></span><span>Despesas: <b class="mono">${brl(prop.totalDespesas)}</b></span><span>Valor técnico: <b class="mono" style="color:var(--value)">${brl(prop.valorTecnico)}</b></span></div>
+      <div class="row end" style="margin-top:10px"><button class="btn ghost" id="hSalvar">Salvar e recalcular</button><button class="btn" id="hGerar">Propor honorários</button></div>
+      <div id="hDoc" style="margin-top:12px"></div>`) +
+    card("Arbitramento, depósito e início dos trabalhos", `<div class="grid g4">
+      ${fld("hArb", "Honorários arbitrados (R$)", h.arbitrado, "number")}${fld("hArbId", "ID da decisão de arbitramento", h.arbitradoId)}
+      ${sel("hAceita", "Concorda com o valor arbitrado?", [{ id: "sim", label: "Sim" }, { id: "nao", label: "Não" }], h.aceitaArbitrado ? "sim" : h.aceitaArbitrado === false ? "nao" : "")}
+      ${sel("hDepEx", "Depósito prévio exigido?", [{ id: "sim", label: "Sim" }, { id: "nao", label: "Não" }], h.depositoExigido === false ? "nao" : "sim")}
+      ${fld("hAutId", "ID da decisão que autoriza o início", P().autorizacaoInicio?.decisaoId)}${fld("hAutData", "Data dessa decisão", P().autorizacaoInicio?.data, "date")}</div>
+      <p class="small muted">Depósitos, alvarás e recebimentos são lançados na aba Financeiro.</p>
+      <div class="row end"><button class="btn" id="hArbS">Salvar arbitramento</button></div>`);
+  ED.ativ = editorLinhas($("edAtiv"), [{ k: "descricao", rot: "Atividade" }, { k: "horas", rot: "Horas", tipo: "number", w: "110px" }],
+    (h.atividades && h.atividades.length) ? h.atividades : R.atividadesPadrao.map(d => ({ descricao: d, horas: "" })), { rotuloAdd: "Adicionar atividade" });
+  ED.desp = editorLinhas($("edDesp"), [{ k: "descricao", rot: "Despesa" }, { k: "valor", rot: "Valor (R$)", tipo: "number", w: "140px" }], h.despesas, { rotuloAdd: "Adicionar despesa" });
+  const honor = () => ({ ...h, requerente: val("hReq"), antecipante: val("hAnt"), decisaoId: val("hDec"), natureza: val("hNat"),
+    valorHora: val("hVh") === "" ? "" : Number(val("hVh")), atividades: ED.ativ.get(), despesas: ED.desp.get(),
+    fatores: [...document.querySelectorAll("#hFat input:checked")].map(i => i.value), cronograma: val("hCron"), justificativa: val("hJust") });
+  $("hSalvar").onclick = () => salvarProc({ honorarios: honor() }, "Proposta recalculada.");
+  const gerar = async (rasc) => {
+    if (!await salvarProc({ honorarios: honor() }, "Proposta salva.")) return;
+    const out = await fluxo("honorarios", { rascunho: rasc }); if (!out) return;
+    TAB = "honor";
+    const r = out.resultado;
+    const box = $("hDoc");
+    box.innerHTML = (r ? `<div class="grid g2" style="margin-bottom:12px"><div class="acao"><b>Valor técnico da perícia</b><span class="mono">${brl(r.calculo.valorTecnico)}</span></div>
+      <div class="acao${r.custeio.limite ? "" : " urg"}"><b>Limite de custeio pelo Tribunal</b>${r.custeio.limite ? `<span class="mono">${brl(r.custeio.limite)}</span> — ${esc(r.custeio.fonte)} (verificado em ${dBR(r.custeio.verificadoEm)})` : esc(r.custeio.aviso)}</div></div>
+      <div class="aviso">${esc(r.custeio.observacao)}<ul style="margin:6px 0 0 18px;padding:0">${r.contexto.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>` : "") + `<div id="hDocTxt"></div>`;
+    docPainel($("hDocTxt"), out, PID, { rascunho: () => gerar(true) });
+  };
+  $("hGerar").onclick = () => gerar(false);
+  $("hArbS").onclick = () => salvarProc({
+    honorarios: { ...honor(), arbitrado: val("hArb") === "" ? null : Number(val("hArb")), arbitradoId: val("hArbId"),
+      aceitaArbitrado: val("hAceita") === "sim" ? true : val("hAceita") === "nao" ? false : null, depositoExigido: val("hDepEx") !== "nao" },
+    autorizacaoInicio: { decisaoId: val("hAutId"), data: val("hAutData") },
+  }, "Arbitramento salvo.");
+};
+
+// ── Prazos ──
+RENDER.prazos = (el) => {
+  const pz = D.prazos.slice().sort((a, b) => String(a.dataLimite || "9").localeCompare(String(b.dataLimite || "9")));
+  el.innerHTML = card("Painel de prazos", `<div class="tscroll"><table><thead><tr><th>Prazo</th><th>Evento inicial</th><th>Data-limite</th><th>Situação</th><th>Ação</th><th>Regra</th><th></th></tr></thead><tbody>
+    ${pz.length ? pz.map(p => `<tr><td><b>${esc(p.rotulo)}</b></td><td>${dBR(p.dataReferencia)}<div class="small muted">${esc(p.eventoInicial || "")}</div></td>
+      <td class="mono">${p.dataLimite ? dBR(p.dataLimite) : "—"}</td><td>${pillSit(p.situacao)}</td><td class="small">${esc(p.acao || "")}</td>
+      <td class="small">${esc(p.dias ?? "?")} dia(s) ${p.contagem === "corridos" ? "corridos" : "úteis"} · ${esc(p.fonte || "")}<div class="muted">${esc((p.memoria || []).join(" "))}</div><div class="muted">${esc(p.statusFonte || "")}</div></td>
+      <td class="row">${p.cumpridoEm ? "" : `<button class="btn sm ghost" data-ok="${esc(p.id)}">Cumprido</button>`}<button class="btn sm danger" data-rm="${esc(p.id)}" aria-label="Excluir">✕</button></td></tr>`).join("")
+      : '<tr><td colspan="7" class="empty">Nenhum prazo. O cálculo exige a data da intimação e a regra aplicável.</td></tr>'}</tbody></table></div>`) +
+    card("Novo prazo", `<div class="grid g4">
+      ${sel("zTipo", "Tipo", R.tiposPrazo.map(t => ({ id: t.id, label: t.rotulo })), "")}
+      ${fld("zRef", "Data da intimação / ato de referência", "", "date")}${fld("zEv", "Evento inicial (ID / descrição)", "")}
+      ${fld("zDias", "Dias (vazio = padrão do tipo)", "", "number")}
+      ${sel("zCont", "Contagem", [{ id: "uteis", label: "Dias úteis" }, { id: "corridos", label: "Dias corridos" }], "")}
+      ${sel("zSent", "Sentido", [{ id: "apos", label: "Após a referência" }, { id: "antes", label: "Antecedência (antes da data)" }], "")}
+      ${fld("zRot", "Rótulo (opcional)", "")}${sel("zRec", "Suspender em 20/dez–20/jan", [{ id: "sim", label: "Sim" }, { id: "nao", label: "Não" }], "sim")}</div>
+      <p class="small muted">Feriados e suspensões do tribunal são cadastrados em Normas e prazos. A vigência de cada regra deve ser conferida em fonte oficial.</p>
+      <div class="row end"><button class="btn" id="zSalvar">Calcular e salvar</button></div>`);
+  $("zTipo").onchange = () => { const t = R.tiposPrazo.find(x => x.id === val("zTipo")); if (t) { $("zCont").value = t.contagem; $("zSent").value = t.sentido; $("zDias").placeholder = t.dias ?? "informar"; } };
+  $("zSalvar").onclick = () => salvarFilho("prazos", { tipo: val("zTipo"), dataReferencia: val("zRef"), eventoInicial: val("zEv"), dias: val("zDias") === "" ? "" : Number(val("zDias")),
+    contagem: val("zCont") || undefined, sentido: val("zSent") || undefined, rotulo: val("zRot") || undefined, recesso: val("zRec") !== "nao" }, "Prazo registrado.");
+  el.querySelectorAll("[data-ok]").forEach(b => b.onclick = () => salvarFilho("prazos", { id: b.dataset.ok, cumpridoEm: hoje() }, "Prazo marcado como cumprido."));
+  el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => excluirFilho("prazos", b.dataset.rm));
+};
+
+// ── Diligência ──
+RENDER.dilig = (el) => {
+  const ds = D.diligencias;
+  el.innerHTML = card("Diligências", `<div class="tscroll"><table><thead><tr><th>Data</th><th>Local</th><th>Responsável pelo acesso</th><th>Comunicação</th><th>Situação</th><th></th></tr></thead><tbody>
+    ${ds.length ? ds.map(d => `<tr><td>${dBR(d.data)} ${esc(d.hora || "")}</td><td>${esc(d.local || "")}</td><td>${esc(d.responsavelAcesso || "")}</td>
+      <td>${(d.comunicacoes || []).some(c => c.comprovada) ? '<span class="pill ok">comprovada</span>' : '<span class="pill no">sem comprovação</span>'}</td>
+      <td>${d.cancelada ? '<span class="pill neu">cancelada</span>' : d.realizada ? '<span class="pill ok">realizada</span>' : '<span class="pill inf">agendada</span>'}</td>
+      <td class="row"><button class="btn sm ghost" data-ed="${esc(d.id)}">Abrir</button><button class="btn sm danger" data-rm="${esc(d.id)}" aria-label="Excluir">✕</button></td></tr>`).join("")
+      : '<tr><td colspan="6" class="empty">Nenhuma diligência. Antes de agendar, confirme arbitramento, depósito e autorização de início.</td></tr>'}</tbody></table></div>`) + `<div id="formD"></div>`;
+  const form = (d) => {
+    d = d || {};
+    $("formD").innerHTML = card(d.id ? `Diligência de ${dBR(d.data)}` : "Nova diligência", `<div class="grid g4">
+      ${fld("dData", "Data", d.data, "date")}${fld("dHora", "Horário", d.hora, "time")}${fld("dLocal", "Endereço do objeto", d.local, "text", " span2")}
+      ${fld("dResp", "Pessoa responsável pelo acesso", d.responsavelAcesso)}${fld("dContato", "Contato do responsável", d.contato)}
+      ${fld("dCond", "Condições de acesso", d.condicoesAcesso, "text", " span2")}
+      ${fld("dEquip", "Equipamentos necessários", d.equipamentos, "textarea", " span2")}${fld("dSolic", "Documentos/condições a solicitar no local", d.solicitacoes, "textarea", " span2")}
+      ${fld("dPres", "Presentes", d.presentes, "textarea", " span2")}${fld("dOcor", "Ocorrências", d.ocorrencias, "textarea", " span2")}
+      ${sel("dSit", "Situação", [{ id: "agendada", label: "Agendada" }, { id: "realizada", label: "Realizada" }, { id: "cancelada", label: "Cancelada" }], d.cancelada ? "cancelada" : d.realizada ? "realizada" : "agendada")}</div>
+      <h3 class="small" style="margin:14px 0 6px">Comunicação às partes e assistentes</h3><div id="edCom"></div>
+      <div class="row end" style="margin-top:10px">${d.id ? '<button class="btn ghost" id="dCanc">Nova</button>' : ""}<button class="btn ghost" id="dSalvar">Salvar diligência</button>${d.id ? '<button class="btn" id="dPet">Agendar perícia (petição)</button>' : ""}</div>
+      <div id="dDoc" style="margin-top:12px"></div>`);
+    const partes = (P().partes || []).flatMap(p => [p.nome && `${p.nome} (${p.polo})`, p.assistente?.nome && `${p.assistente.nome} — assistente`]).filter(Boolean);
+    ED.com = editorLinhas($("edCom"), [{ k: "destinatario", rot: "Destinatário", ph: partes.join(" / ") }, { k: "meio", rot: "Meio", tipo: "select", w: "150px", opts: ["Petição nos autos", "Intimação pelo Juízo", "E-mail", "Carta AR", "Outro"] },
+      { k: "data", rot: "Data", tipo: "date", w: "150px" }, { k: "comprovanteId", rot: "ID do comprovante", w: "140px" }, { k: "comprovada", rot: "Comprovada", tipo: "check", w: "90px" }],
+      d.comunicacoes || partes.map(x => ({ destinatario: x })), { rotuloAdd: "Adicionar destinatário" });
+    const corpo = () => ({ id: d.id, data: val("dData"), hora: val("dHora"), local: val("dLocal"), responsavelAcesso: val("dResp"), contato: val("dContato"),
+      condicoesAcesso: val("dCond"), equipamentos: val("dEquip"), solicitacoes: val("dSolic"), presentes: val("dPres"), ocorrencias: val("dOcor"),
+      realizada: val("dSit") === "realizada", cancelada: val("dSit") === "cancelada", comunicacoes: ED.com.get() });
+    $("dSalvar").onclick = () => salvarFilho("diligencias", corpo(), "Diligência salva.");
+    if ($("dCanc")) $("dCanc").onclick = () => form();
+    if ($("dPet")) {
+      const gerar = async (rasc) => { const out = await fluxo("agendar", { diligenciaId: d.id, rascunho: rasc }); if (out) docPainel($("dDoc"), out, PID, { rascunho: () => gerar(true) }); };
+      $("dPet").onclick = () => gerar(false);
+    }
+  };
+  form(ds.find(d => !d.realizada && !d.cancelada));
+  el.querySelectorAll("[data-ed]").forEach(b => b.onclick = () => { form(ds.find(x => x.id === b.dataset.ed)); $("formD").scrollIntoView({ behavior: "smooth" }); });
+  el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => excluirFilho("diligencias", b.dataset.rm));
+};
+
+// ── Objeto e checklist ──
+const ST_CHK = [{ id: "pendente", label: "Não verificado" }, { id: "ok", label: "Verificado" }, { id: "nc", label: "Não conforme / anomalia" }, { id: "na", label: "Não aplicável" }];
+RENDER.objeto = (el) => {
+  const mods = (P().modulos || []);
+  el.innerHTML = (mods.length ? "" : `<div class="aviso">Vincule ao menos um módulo técnico na aba Identificação.</div>`) +
+    D.objetos.map((o, i) => `<div id="obj_${esc(o.id)}"></div>`).join("") +
+    card("Adicionar objeto", mods.length ? `<div class="row">${sel("oNovo", "Módulo", mods.map(m => ({ id: m, label: nomeMod(m) })), mods[0])}<div class="fld"><label>&nbsp;</label><button class="btn" id="oAdd">Adicionar objeto</button></div></div>` : '<p class="muted small">Sem módulo vinculado.</p>');
+  if ($("oAdd")) $("oAdd").onclick = () => salvarFilho("objetos", { moduloId: val("oNovo"), dados: {}, checklist: {} }, "Objeto adicionado.");
+  D.objetos.forEach((o, i) => renderObjeto($("obj_" + o.id), o, i));
+};
+function renderObjeto(box, o, i) {
+  const m = MODS[o.moduloId];
+  if (!m) { box.innerHTML = card("Objeto " + (i + 1), `<p class="blq">Módulo ${esc(o.moduloId)} indisponível.</p>`); return; }
+  const px = "o" + i;
+  const itens = Object.values(m.checklists || {}).flat();
+  const grupos = [...new Set(itens.map(x => x.grupo))];
+  const feitos = itens.filter(x => o.checklist?.[x.id]?.status && o.checklist[x.id].status !== "pendente").length;
+  box.innerHTML = card(`Objeto ${i + 1} — ${m.nome}`, `
+    ${(o.alertas || []).length ? `<div class="aviso"><ul style="margin:0 0 0 18px;padding:0">${o.alertas.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>` : ""}
+    ${schemaHTML(m.schemaObjeto, o.dados || {}, px, BENS)}
+    <div class="chk-grupo">Ensaios e medições previstos</div><div class="row small" id="${px}_ens">${m.ensaios.map(e => `<label class="row" style="gap:4px"><input type="checkbox" value="${esc(e.id)}"${(o.ensaiosSelecionados || []).includes(e.id) ? " checked" : ""}> ${esc(e.nome)}${e.requerCustodia ? ' <span class="pill at">custódia</span>' : ""}</label>`).join("")}</div>
+    <div class="chk-grupo" style="margin-top:18px">Checklist de diligência <span class="pill ${feitos === itens.length ? "ok" : "at"}">${feitos}/${itens.length}</span></div>
+    ${grupos.map(g => `<div class="small muted" style="margin-top:10px;font-weight:600">${esc(g)}</div>` + itens.filter(x => x.grupo === g).map(it => {
+      const r = (o.checklist || {})[it.id] || {};
+      return `<div class="chk-item"><div>${esc(it.texto)}<div class="small muted">evidência esperada: ${esc(it.evidenciaEsperada)}</div></div>
+        <select data-cs="${esc(it.id)}" aria-label="Resultado">${optHTML(ST_CHK, r.status || "pendente")}</select>
+        <textarea data-co="${esc(it.id)}" rows="1" placeholder="Observação objetiva" aria-label="Observação">${esc(r.obs || "")}</textarea>
+        <input data-ce="${esc(it.id)}" value="${esc((r.evidencias || []).map(rotEv).join(", "))}" placeholder="EV-001, EV-002" aria-label="Evidências"></div>`;
+    }).join("")).join("")}
+    <div class="grid g2" style="margin-top:14px">
+      <div class="fld"><label>Sistemas de referência</label><div class="small muted">${esc((m.sistemas || []).join(" · "))}</div></div>
+      <div class="fld"><label>Referências normativas do módulo</label><div class="small">${(m.normasDetalhe || []).map(n => `${esc(n.identificacao)} — <span class="muted">${esc(n.vigencia)}</span>`).join("<br>") || "—"}</div></div></div>
+    <div class="row end" style="margin-top:12px"><button class="btn danger" id="${px}_rm">Remover objeto</button><button class="btn ghost" id="${px}_val">Validar</button><button class="btn" id="${px}_sv">Salvar objeto e checklist</button></div>`);
+  const ler = () => {
+    const checklist = {};
+    const porCodigo = new Map(D.evidencias.map(e => [e.codigo.toUpperCase(), e.id]));
+    itens.forEach(it => {
+      const evs = (box.querySelector(`[data-ce="${it.id}"]`).value || "").split(/[,;\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+      const desconhecidos = evs.filter(c => !porCodigo.has(c));
+      if (desconhecidos.length) throw new Error(`Evidência inexistente no item “${it.texto}”: ${desconhecidos.join(", ")}`);
+      checklist[it.id] = { status: box.querySelector(`[data-cs="${it.id}"]`).value, obs: box.querySelector(`[data-co="${it.id}"]`).value, evidencias: evs.map(c => porCodigo.get(c)) };
+    });
+    return { id: o.id, moduloId: o.moduloId, dados: lerSchema(m.schemaObjeto, px), checklist, ensaiosSelecionados: [...box.querySelectorAll(`#${px}_ens input:checked`)].map(x => x.value) };
+  };
+  $(px + "_sv").onclick = () => { try { salvarFilho("objetos", ler(), "Objeto salvo."); } catch (e) { toast(e.message, true); } };
+  $(px + "_val").onclick = async () => { try { const r = await post(`/api/modulos/${m.id}/validar`, { dados: lerSchema(m.schemaObjeto, px) });
+    toast(r.erros.length ? r.erros.join(" ") : r.alertas.length ? `${r.alertas.length} alerta(s): ${r.alertas[0]}` : "Sem alertas.", !!r.erros.length); } catch (e) { toast(e.message, true); } };
+  $(px + "_rm").onclick = () => excluirFilho("objetos", o.id);
+}
+
+// ── Evidências ──
+const TIPOS_EV = [{ id: "foto", label: "Fotografia" }, { id: "medicao", label: "Medição" }, { id: "ensaio", label: "Ensaio" }, { id: "documento", label: "Documento" }, { id: "amostra", label: "Amostra / componente coletado" }, { id: "constatacao", label: "Constatação" }];
+RENDER.evid = (el) => {
+  el.innerHTML = card("Cadastro de evidências", `<div class="tscroll"><table><thead><tr><th>Código</th><th>Evidência</th><th>Origem</th><th>Data / local</th><th>Relevância</th><th>Arquivo</th><th></th></tr></thead><tbody>
+    ${D.evidencias.length ? D.evidencias.map(e => `<tr><td class="mono"><b>${esc(e.codigo)}</b><div class="small muted">${esc((TIPOS_EV.find(t => t.id === e.tipo) || {}).label || e.tipo)}</div></td>
+      <td>${esc(e.descricao || "")}${e.legenda ? `<div class="small muted">Legenda: ${esc(e.legenda)}</div>` : ""}${e.resultado ? `<div class="small">Resultado: ${esc(e.resultado)}</div>` : ""}
+        ${e.tipo === "amostra" ? `<div class="small">${(e.custodia || []).length ? `Custódia: ${e.custodia.length} registro(s)` : '<span class="pill no">sem cadeia de custódia</span>'}</div>` : ""}</td>
+      <td>${pillClasse(e.origem?.classe)}<div class="small muted">${citar(e.origem)}</div></td>
+      <td class="small">${dBR(e.data)}<br>${esc(e.local || "")}</td><td class="small">${esc(e.relevancia || "")}</td>
+      <td class="small">${e.arquivo ? `<button class="btn sm ghost" data-dl="${esc(e.id)}">Baixar</button><div class="mono muted" title="SHA-256">${esc((e.sha256 || "").slice(0, 12))}…</div>` : "—"}</td>
+      <td class="row"><button class="btn sm ghost" data-ed="${esc(e.id)}">Editar</button><button class="btn sm danger" data-rm="${esc(e.id)}" aria-label="Excluir">✕</button></td></tr>`).join("")
+      : '<tr><td colspan="7" class="empty">Nenhuma evidência. Fotografias recebem numeração e legenda objetiva; o arquivo é guardado sem alteração, com hash SHA-256.</td></tr>'}</tbody></table></div>`) + `<div id="formE"></div>`;
+  const form = (e) => {
+    e = e || { tipo: "foto", data: hoje() };
+    $("formE").innerHTML = card(e.id ? `Evidência ${e.codigo}` : "Nova evidência", `<div class="grid g4">
+      ${sel("vTipo", "Tipo", TIPOS_EV, e.tipo)}${fld("vData", "Data", e.data, "date")}${fld("vLocal", "Local", e.local, "text", " span2")}
+      ${fld("vDesc", "Descrição", e.descricao, "text", " span2")}${fld("vLeg", "Legenda (fotografias)", e.legenda, "text", " span2")}
+      ${fld("vRel", "Relevância", e.relevancia, "text", " span2")}${sel("vObj", "Objeto relacionado", D.objetos.map((o, i) => ({ id: o.id, label: `Objeto ${i + 1} — ${nomeMod(o.moduloId)}` })), e.objetoId, " span2")}
+      ${fld("vRes", "Resultado (medição/ensaio)", e.resultado, "text", " span2")}${fld("vInst", "Instrumento / laboratório / calibração", e.instrumento, "text", " span2")}
+      <div class="fld spanall"><label for="vArq">${e.arquivo ? "Substituir arquivo (atual: " + esc(e.nomeOriginal || e.arquivo) + ")" : "Arquivo (até 8 MB)"}</label><input type="file" id="vArq"></div></div>
+      ${origemHTML("vOr", e.origem, { padrao: e.tipo === "documento" ? "fato_autos" : "evidencia_perito" })}
+      <div id="vAmostra" style="display:${e.tipo === "amostra" ? "block" : "none"}">
+        <h3 class="small" style="margin:14px 0 6px">Registro de coleta</h3><div class="grid g3">
+        ${["origemMaterial:Origem do material", "recipiente:Recipiente", "identificacao:Identificação / lacre", "responsavel:Responsável pela coleta", "armazenamento:Armazenamento", "destino:Destino do material"].map(s => { const [k, t] = s.split(":"); return fld("vc_" + k, t, e.coleta?.[k]); }).join("")}</div>
+        <h3 class="small" style="margin:14px 0 6px">Cadeia de custódia</h3><div id="edCust"></div></div>
+      <div class="row end" style="margin-top:10px">${e.id ? '<button class="btn ghost" id="vCanc">Nova</button>' : ""}<button class="btn" id="vSalvar">Salvar evidência</button></div>`);
+    $("vTipo").onchange = () => { $("vAmostra").style.display = val("vTipo") === "amostra" ? "block" : "none"; };
+    ED.cust = editorLinhas($("edCust"), [{ k: "data", rot: "Data", tipo: "date", w: "150px" }, { k: "de", rot: "Entregue por" }, { k: "para", rot: "Recebido por" },
+      { k: "local", rot: "Local" }, { k: "acondicionamento", rot: "Acondicionamento / lacre" }], e.custodia, { rotuloAdd: "Registrar transferência" });
+    $("vSalvar").onclick = async () => {
+      const body = { id: e.id, tipo: val("vTipo"), data: val("vData"), local: val("vLocal"), descricao: val("vDesc"), legenda: val("vLeg"), relevancia: val("vRel"),
+        objetoId: val("vObj") || null, resultado: val("vRes"), instrumento: val("vInst"), origem: lerOrigem("vOr"), custodia: ED.cust.get() };
+      if (body.tipo === "amostra") { body.coleta = {}; ["origemMaterial", "recipiente", "identificacao", "responsavel", "armazenamento", "destino"].forEach(k => body.coleta[k] = val("vc_" + k)); }
+      const f = $("vArq").files[0];
+      if (f) { if (f.size > 8 * 1024 * 1024) return toast("Arquivo acima de 8 MB.", true); body.arquivoBase64 = await lerArquivo(f); body.nomeOriginal = f.name; }
+      salvarFilho("evidencias", body, "Evidência salva.");
+    };
+    if ($("vCanc")) $("vCanc").onclick = () => form();
+  };
+  form();
+  el.querySelectorAll("[data-ed]").forEach(b => b.onclick = () => { form(D.evidencias.find(x => x.id === b.dataset.ed)); $("formE").scrollIntoView({ behavior: "smooth" }); });
+  el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => excluirFilho("evidencias", b.dataset.rm));
+  el.querySelectorAll("[data-dl]").forEach(b => b.onclick = async () => {
+    try { const a = await api(url(`/evidencias/${b.dataset.dl}/arquivo`)); baixar(a.nome, a.base64); if (!a.integro) toast("ATENÇÃO: o hash do arquivo não confere com o registrado.", true); }
+    catch (e) { toast(e.message, true); }
+  });
+};
+
+// ── Análise de falha ──
+RENDER.analise = (el) => {
+  el.innerHTML = D.analises.map((a, i) => card(`Análise ${i + 1} — ${a.componente || a.sintoma || ""}`, `
+      <div class="grid g3 small"><div>Sintoma: <b>${esc(a.sintoma || "—")}</b></div><div>Componente: <b>${esc(a.componente || "—")}</b></div><div>Mecanismo: <b>${esc(a.mecanismo || "—")}</b></div></div>
+      ${a.conclusao?.texto ? `<div class="acao" style="margin-top:10px"><b>Conclusão — ${esc((R.grausConclusao.find(g => g.id === a.conclusao.grau) || {}).label || "")}</b>${esc(a.conclusao.texto)}</div>` : '<p class="small muted">Sem conclusão registrada.</p>'}`,
+    `<div class="row"><button class="btn sm ghost" data-ed="${esc(a.id)}">Editar</button><button class="btn sm danger" data-rm="${esc(a.id)}" aria-label="Excluir">✕</button></div>`)).join("") + `<div id="formA"></div>`;
+  const form = (a) => {
+    a = a || {};
+    const obj = D.objetos.find(o => o.id === a.objetoId) || D.objetos[0];
+    const m = obj && MODS[obj.moduloId] || {};
+    const c = a.conclusao || {};
+    $("formA").innerHTML = card(a.id ? "Editar análise" : "Nova análise de falha", `
+      <p class="small muted">Sequência: sintoma → componente → mecanismo → evidências → histórico → hipóteses → testes → causa mais provável → limitações. Compatibilidade, sozinha, não comprova causa.</p>
+      <div class="grid g3">
+        ${sel("nObj", "Objeto", D.objetos.map((o, i) => ({ id: o.id, label: `Objeto ${i + 1} — ${nomeMod(o.moduloId)}` })), a.objetoId || obj?.id)}
+        ${fld("nSint", "1. Sintoma", a.sintoma)}${sel("nSis", "Sistema", m.sistemas || [], a.sistema)}
+        ${fld("nComp", "2. Componente afetado", a.componente)}
+        <div class="fld"><label for="nMec">3. Mecanismo de falha</label><input id="nMec" list="lMec" value="${esc(a.mecanismo || "")}"><datalist id="lMec">${(m.mecanismos || []).map(x => `<option value="${esc(x)}">`).join("")}</datalist></div>
+        ${fld("nHist", "5. Histórico relevante", a.historico)}
+        <div class="fld spanall"><label>4. Evidências observadas</label>${multiEv("nEv", a.evidencias)}</div>
+        ${fld("nTxt", "Análise técnica (texto)", a.texto, "textarea", " spanall")}</div>
+      <h3 class="small" style="margin:14px 0 6px">6–7. Hipóteses e testes de confirmação/refutação</h3><div id="edHip"></div>
+      <h3 class="small" style="margin:14px 0 6px">8. Causa mais provável — conclusão</h3>
+      <div class="grid g3">${fld("cTxt", "Conclusão", c.texto, "textarea", " spanall")}
+        ${sel("cGrau", "Classificação", R.grausConclusao, c.grau)}${fld("cMet", "Método empregado", c.metodo, "text", " span2")}
+        ${fld("cFund", "Fundamentação técnica", c.fundamentacao, "textarea", " spanall")}
+        <div class="fld spanall"><label>Evidências que sustentam a conclusão</label>${multiEv("cEv", c.evidencias)}</div>
+        ${fld("nLim", "9. Limitações da análise", a.limitacoes, "textarea", " spanall")}</div>
+      <p class="small muted">A conclusão só é gravada com evidência + método + fundamentação. “Comprovado” exige constatação direta, medição ou ensaio.</p>
+      <div class="row end">${a.id ? '<button class="btn ghost" id="nCanc">Nova</button>' : ""}<button class="btn" id="nSalvar">Salvar análise</button></div>`);
+    ED.hip = editorLinhas($("edHip"), [{ k: "texto", rot: "Hipótese", tipo: "textarea" }, { k: "testes", rot: "Teste capaz de confirmar/refutar", tipo: "textarea" },
+      { k: "resultado", rot: "Resultado", tipo: "textarea" }, { k: "evidenciasTxt", rot: "Evidências (códigos)", w: "120px" }, { k: "grau", rot: "Classificação", tipo: "select", opts: R.grausConclusao, w: "170px" }],
+      (a.hipoteses || []).map(h => ({ ...h, evidenciasTxt: (h.evidencias || []).map(rotEv).join(", ") })), { rotuloAdd: "Adicionar hipótese" });
+    $("nSalvar").onclick = () => {
+      const porCod = new Map(D.evidencias.map(e => [e.codigo.toUpperCase(), e.id]));
+      const hipoteses = ED.hip.get().map(({ evidenciasTxt, ...h }) => ({ ...h, evidencias: String(evidenciasTxt || "").split(/[,;\s]+/).map(s => porCod.get(s.trim().toUpperCase())).filter(Boolean) }));
+      salvarFilho("analises", { id: a.id, objetoId: val("nObj"), sintoma: val("nSint"), sistema: val("nSis"), componente: val("nComp"), mecanismo: val("nMec"),
+        historico: val("nHist"), evidencias: lerMulti("nEv"), texto: val("nTxt"), hipoteses, limitacoes: val("nLim"),
+        conclusao: { texto: val("cTxt"), grau: val("cGrau"), metodo: val("cMet"), fundamentacao: val("cFund"), evidencias: lerMulti("cEv") } }, "Análise salva.");
+    };
+    if ($("nCanc")) $("nCanc").onclick = () => form();
+  };
+  form();
+  el.querySelectorAll("[data-ed]").forEach(b => b.onclick = () => { form(D.analises.find(x => x.id === b.dataset.ed)); $("formA").scrollIntoView({ behavior: "smooth" }); });
+  el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => excluirFilho("analises", b.dataset.rm));
+};
+
+// ── Laudo ──
+const SEC_MANUAIS = [["metodologia", "Metodologia"], ["referencias", "Outras referências técnicas (manuais, literatura)"], ["constatacoes", "Constatações — texto complementar"],
+  ["conclusoes", "Conclusões — texto de síntese"], ["limitacoes", "Limitações da perícia"], ["encerramento", "Encerramento (opcional)"]];
+RENDER.laudo = (el) => {
+  const atual = D.laudos.filter(l => l.status !== "protocolado").slice(-1)[0];
+  const prots = D.laudos.filter(l => l.status === "protocolado");
+  el.innerHTML = card("Versões", `<table><thead><tr><th>Versão</th><th>Situação</th><th>Protocolo</th><th>Hash</th><th></th></tr></thead><tbody>
+    ${D.laudos.length ? D.laudos.map(l => `<tr><td>v${esc(l.versao)}</td><td>${l.status === "protocolado" ? '<span class="pill ok">protocolado</span>' : '<span class="pill inf">rascunho</span>'}</td>
+      <td>${l.protocoladoEm ? dBR(l.protocoladoEm) + (l.documentoId ? " · ID " + esc(l.documentoId) : "") : "—"}</td><td class="mono small">${esc((l.hash || "").slice(0, 16))}</td>
+      <td><button class="btn sm ghost" data-dx="${esc(l.id)}">Baixar .docx</button></td></tr>`).join("") : '<tr><td colspan="5" class="empty">Nenhuma versão. Crie o rascunho abaixo.</td></tr>'}</tbody></table>
+    ${prots.length && !atual ? `<div class="row end" style="margin-top:10px"><button class="btn ghost" id="lNova">Criar nova versão (complementação)</button></div>` : ""}`) +
+    (atual || !D.laudos.length ? card(atual ? `Rascunho v${atual.versao}` : "Novo laudo", `<div class="grid g2">
+      ${fld("lArt", "Nº da ART", atual?.art)}<div></div>
+      ${SEC_MANUAIS.map(([k, t]) => fld("ls_" + k, t, atual?.secoes?.[k], "textarea", " spanall")).join("")}</div>
+      <p class="small muted">As demais seções (identificação, escopo, cronologia, diligência, objeto, constatações, ensaios, análises, hipóteses, quesitos e anexos) são montadas automaticamente a partir dos registros do processo.</p>
+      <div class="row end"><button class="btn ghost" id="lSalvar">Salvar rascunho</button><button class="btn ghost" id="lAud">Auditar laudo</button><button class="btn" id="lPrev">Elaborar laudo (prévia)</button></div>
+      ${atual ? `<div class="grid g3" style="margin-top:14px">${fld("lpData", "Data do protocolo", hoje(), "date")}${fld("lpId", "ID do laudo nos autos", "")}<div class="fld"><label>&nbsp;</label><button class="btn" id="lProt">Registrar protocolo e congelar</button></div></div>` : ""}`) : "") +
+    `<div id="lSaida"></div>`;
+  el.querySelectorAll("[data-dx]").forEach(b => b.onclick = async () => { try { const d = await post(url("/laudo/docx"), { laudoId: b.dataset.dx }); baixar(d.nome, d.base64, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"); } catch (e) { toast(e.message, true); } });
+  const corpo = () => ({ id: atual?.id, art: val("lArt"), secoes: Object.fromEntries(SEC_MANUAIS.map(([k]) => [k, val("ls_" + k)])) });
+  if ($("lNova")) $("lNova").onclick = () => salvarFilho("laudos", { secoes: prots[prots.length - 1].secoes, art: prots[prots.length - 1].art }, "Nova versão criada.");
+  if ($("lSalvar")) $("lSalvar").onclick = () => salvarFilho("laudos", corpo(), "Rascunho salvo.");
+  if ($("lAud")) $("lAud").onclick = async () => {
+    const out = await fluxo("auditar"); if (!out) return;
+    const r = out.resultado, g = { alta: "no", media: "at", baixa: "neu" };
+    $("lSaida").innerHTML = card("Auditoria do laudo", `<div class="${r.apto ? "acao" : "blq"}"><b>${r.apto ? "Sem achados graves" : "Há achados graves — o protocolo fica bloqueado"}</b>${r.total} achado(s) no total.</div>
+      <table style="margin-top:10px"><thead><tr><th>Gravidade</th><th>Item</th><th>Achado</th></tr></thead><tbody>${r.achados.map(a => `<tr><td><span class="pill ${g[a.gravidade]}">${esc(a.gravidade)}</span></td><td>${esc(a.item)}</td><td>${esc(a.detalhe)}</td></tr>`).join("") || '<tr><td colspan="3" class="empty">Nenhum achado.</td></tr>'}</tbody></table>`);
+  };
+  if ($("lPrev")) $("lPrev").onclick = async () => {
+    if (atual) { try { await post(url("/laudos"), corpo()); } catch (e) { return toast(e.message, true); } }
+    else { const n = await salvarFilho("laudos", corpo(), "Rascunho criado."); if (!n) return; }
+    const out = await fluxo("laudo"); if (!out) return;
+    const blocos = (bs) => bs.map(b => b.t === "p" ? `<p>${esc(b.text)}</p>` : b.t === "h3" ? `<h4>${esc(b.text)}</h4>`
+      : b.t === "kv" ? `<table><tbody>${b.rows.map(r => `<tr><th style="width:30%;text-transform:none">${esc(r[0])}</th><td style="white-space:pre-wrap">${esc(r[1])}</td></tr>`).join("")}</tbody></table>`
+      : b.t === "table" ? `<div class="tscroll"><table><thead><tr>${b.head.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${b.rows.map(r => `<tr>${r.map(c => `<td style="white-space:pre-wrap">${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`
+      : b.t === "q" ? `<div class="q"><b>Quesito ${esc(b.numero || "")}</b><div class="small muted">PERGUNTA — ${esc(b.origem)}</div><div class="txt">${esc(b.pergunta)}</div><div class="small muted">RESPOSTA</div><div class="txt">${esc(b.resposta)}</div>${b.fundamentacao ? `<div class="small muted">FUNDAMENTAÇÃO TÉCNICA</div><div class="txt">${esc(b.fundamentacao)}</div>` : ""}</div>`
+      : b.t === "img" ? `<p class="small muted">[${esc(b.legenda)}]</p>` : "").join("");
+    $("lSaida").innerHTML = card("Prévia do laudo", `${out.bloqueios.length ? `<div class="aviso">Pré-condições: ${esc(out.bloqueios.join("; "))}</div>` : ""}
+      <div class="sec-prev">${out.resultado.secoes.map(s => `<h3>${s.n}. ${esc(s.titulo)}</h3>${blocos(s.blocos)}`).join("")}</div>`,
+      `<button class="btn sm" id="lDocx">Baixar .docx</button>`);
+    $("lDocx").onclick = async () => { try { const d = await post(url("/laudo/docx"), {}); baixar(d.nome, d.base64, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"); } catch (e) { toast(e.message, true); } };
+    renderTabs();
+  };
+  if ($("lProt")) $("lProt").onclick = async () => {
+    if (!confirm("Registrar o protocolo congela esta versão do laudo. Continuar?")) return;
+    try { await post(url("/laudos"), corpo()); const r = await post(url(`/laudos/${atual.id}/protocolar`), { data: val("lpData"), documentoId: val("lpId") });
+      toast(`Laudo v${r.versao} congelado.`); await recarregar(); } catch (e) { toast(e.message, true); }
+  };
+};
+
+// ── Pós-laudo ──
+RENDER.pos = (el) => {
+  el.innerHTML = card("Manifestações sobre o laudo", `<table><thead><tr><th>Manifestação</th><th>Itens</th><th>Situação</th><th></th></tr></thead><tbody>
+    ${D.esclarecimentos.length ? D.esclarecimentos.map(e => `<tr><td>${esc(e.manifestacao?.parte || "")} ${e.manifestacao?.documentoId ? "· ID " + esc(e.manifestacao.documentoId) : ""}<div class="small muted">${dBR(e.manifestacao?.data)}</div></td>
+      <td>${(e.itens || []).length} (${(e.itens || []).filter(i => i.natureza === "juridica").length} jurídicos)</td><td>${e.status === "protocolado" ? '<span class="pill ok">protocolado</span>' : '<span class="pill inf">em elaboração</span>'}</td>
+      <td class="row"><button class="btn sm ghost" data-ed="${esc(e.id)}">Abrir</button><button class="btn sm danger" data-rm="${esc(e.id)}" aria-label="Excluir">✕</button></td></tr>`).join("")
+      : '<tr><td colspan="4" class="empty">Nenhuma manifestação registrada.</td></tr>'}</tbody></table>`) + `<div id="formP"></div>`;
+  const form = (e) => {
+    e = e || {};
+    const m = e.manifestacao || {};
+    $("formP").innerHTML = card(e.id ? "Esclarecimentos do perito" : "Nova manifestação", `<div class="grid g4">
+      ${fld("mParte", "Parte que se manifestou", m.parte)}${fld("mId", "ID da manifestação", m.documentoId)}${fld("mData", "Data", m.data, "date")}
+      ${sel("mSit", "Situação", [{ id: "rascunho", label: "Em elaboração" }, { id: "protocolado", label: "Protocolado" }], e.status || "rascunho")}</div>
+      <p class="small muted">Separe crítica técnica de crítica jurídica, indique se o ponto já foi respondido e o trecho do laudo. Discordância da parte, por si só, não altera conclusão; corrija apenas erro material demonstrado.</p>
+      <div id="edItens"></div>
+      <div class="row end" style="margin-top:10px">${e.id ? '<button class="btn ghost" id="mCanc">Nova</button>' : ""}<button class="btn ghost" id="mSalvar">Salvar</button>${e.id ? '<button class="btn" id="mGerar">Gerar esclarecimentos</button>' : ""}</div>
+      <div id="mDoc" style="margin-top:12px"></div>`);
+    ED.itens = editorLinhas($("edItens"), [{ k: "texto", rot: "Questionamento (transcrição)", tipo: "textarea" },
+      { k: "natureza", rot: "Natureza", tipo: "select", w: "120px", opts: [{ id: "tecnica", label: "Técnica" }, { id: "juridica", label: "Jurídica" }] },
+      { k: "jaRespondido", rot: "Já respondido?", tipo: "check", w: "80px" }, { k: "trechoLaudo", rot: "Trecho do laudo", w: "150px", ph: "seção 15, quesito 3…" },
+      { k: "resposta", rot: "Resposta técnica", tipo: "textarea" }, { k: "correcaoMaterial", rot: "Correção de erro material", tipo: "textarea" }], e.itens, { rotuloAdd: "Adicionar questionamento" });
+    $("mSalvar").onclick = () => salvarFilho("esclarecimentos", { id: e.id, manifestacao: { parte: val("mParte"), documentoId: val("mId"), data: val("mData") }, itens: ED.itens.get(), status: val("mSit") }, "Manifestação salva.");
+    if ($("mCanc")) $("mCanc").onclick = () => form();
+    if ($("mGerar")) $("mGerar").onclick = async () => {
+      try { await post(url("/esclarecimentos"), { id: e.id, manifestacao: { parte: val("mParte"), documentoId: val("mId"), data: val("mData") }, itens: ED.itens.get(), status: val("mSit") }); }
+      catch (x) { return toast(x.message, true); }
+      const out = await fluxo("esclarecimentos", { esclarecimentoId: e.id }); if (out) docPainel($("mDoc"), out, PID);
+    };
+  };
+  form(D.esclarecimentos.find(x => x.status !== "protocolado"));
+  el.querySelectorAll("[data-ed]").forEach(b => b.onclick = () => form(D.esclarecimentos.find(x => x.id === b.dataset.ed)));
+  el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => excluirFilho("esclarecimentos", b.dataset.rm));
+};
+
+// ── Financeiro ──
+RENDER.fin = (el) => {
+  const h = P().honorarios || {}, f = D.financeiro;
+  el.innerHTML = `<div class="grid g4" style="margin-bottom:18px">
+      ${[["Propostos", f.proposto], ["Arbitrados", f.arbitrado], ["Depositados", f.depositado], ["Recebidos", f.recebido]].map(([t, v]) => `<div class="card cb"><div class="small muted">${t}</div><b class="mono" style="font-size:18px">${brl(v)}</b></div>`).join("")}</div>
+    ${f.aEsclarecer > 0 ? `<div class="blq">Crédito de natureza não esclarecida: <b>${brl(f.aEsclarecer)}</b>. Não presuma que se trata de honorários — gere o pedido de esclarecimento abaixo.</div>` : ""}
+    ${f.saldo !== null ? `<div class="acao" style="margin-bottom:18px"><b>Saldo a receber</b><span class="mono">${brl(f.saldo)}</span> · retenções lançadas: ${brl(f.retencoes)}</div>` : ""}` +
+    card("Liberação", `<div class="grid g4">
+      ${sel("fHom", "Laudo homologado?", [{ id: "sim", label: "Sim" }, { id: "nao", label: "Não" }, { id: "a_verificar", label: "A verificar" }], h.homologado)}
+      ${fld("fHomId", "ID da homologação", h.homologacaoId)}
+      ${sel("fForma", "Forma de pagamento", [{ id: "alvara", label: "Alvará / transferência judicial" }, { id: "requisicao", label: "Requisição administrativa (custeio público)" }, { id: "direto", label: "Depósito direto determinado" }, { id: "a_verificar", label: "A verificar" }], h.formaPagamento)}
+      ${sel("fDados", "Dados bancários solicitados/informados?", [{ id: "sim", label: "Sim" }, { id: "nao", label: "Não" }], h.dadosBancarios)}</div>`) +
+    card("Depósitos nos autos", `<div id="edDep"></div>`) + card("Alvarás / requisições", `<div id="edAlv"></div>`) +
+    card("Recebimentos na conta do perito", `<div id="edRec"></div>`) + card("Retenções tributárias", `<div id="edRet"></div>`) +
+    `<div class="row end"><button class="btn ghost" id="fPet">Pedir esclarecimento sobre crédito</button><button class="btn" id="fSalvar">Salvar financeiro</button></div><div id="fDoc" style="margin-top:12px"></div>`;
+  const dv = [{ k: "data", rot: "Data", tipo: "date", w: "150px" }, { k: "valor", rot: "Valor (R$)", tipo: "number", w: "140px" }];
+  ED.dep = editorLinhas($("edDep"), [...dv, { k: "parte", rot: "Depositante" }, { k: "documentoId", rot: "ID nos autos", w: "140px" }], h.depositos);
+  ED.alv = editorLinhas($("edAlv"), [...dv, { k: "numero", rot: "Número / tipo" }, { k: "documentoId", rot: "ID nos autos", w: "140px" }], h.alvaras);
+  ED.rec = editorLinhas($("edRec"), [...dv, { k: "origem", rot: "Origem identificada no extrato" },
+    { k: "natureza", rot: "Natureza", tipo: "select", w: "200px", opts: [{ id: "honorarios", label: "Honorários (determinação nos autos)" }, { id: "adiantamento", label: "Adiantamento determinado" }, { id: "a_esclarecer", label: "Sem determinação clara — a esclarecer" }] },
+    { k: "documentoId", rot: "ID da determinação", w: "140px" }], h.recebimentos, { novo: { natureza: "a_esclarecer" } });
+  ED.ret = editorLinhas($("edRet"), [{ k: "descricao", rot: "Tributo / retenção" }, { k: "valor", rot: "Valor (R$)", tipo: "number", w: "140px" }], h.retencoes);
+  const salvar = () => salvarProc({ honorarios: { ...h, homologado: val("fHom"), homologacaoId: val("fHomId"), formaPagamento: val("fForma"), dadosBancarios: val("fDados"),
+    depositos: ED.dep.get(), alvaras: ED.alv.get(), recebimentos: ED.rec.get(), retencoes: ED.ret.get() } }, "Financeiro salvo.");
+  $("fSalvar").onclick = salvar;
+  $("fPet").onclick = async () => { if (!await salvar()) return; const out = await fluxo("pagamento"); if (out) { TAB = "fin"; docPainel($("fDoc"), out, PID); } };
+};
+
+iniciar();
+</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});}</script>
+</body>
+</html>

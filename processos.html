@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SALVe — Perícias</title>
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#2C383D">
+<link rel="icon" href="favicon-48.png"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>window.SALVE_API = "https://salve-backend.onrender.com";</script>
+<link rel="stylesheet" href="pericia.css">
+<style>
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+  @media(max-width:760px){.kpis{grid-template-columns:1fr 1fr}}
+  .kpi{background:var(--sheet);border:1px solid var(--hair);border-radius:11px;padding:12px 16px}
+  .kpi span{display:block;font-size:12px;color:var(--muted)}.kpi b{font-family:"IBM Plex Sans Condensed";font-size:26px}
+  .luzcel{width:8px;padding:0!important}.luzcel i{display:block;width:8px;height:100%;min-height:44px}
+  .l-verde{background:var(--value)}.l-amarelo{background:#C99A2E}.l-vermelho{background:var(--warn)}
+  td .acao-min{font-size:12.5px;max-width:360px}
+  .filtros{display:flex;gap:8px;flex-wrap:wrap}.filtros input{max-width:280px}.filtros select{max-width:180px}
+</style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="wrap" id="wrap">
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <div class="ch"><h2>Processos</h2>
+      <div class="filtros">
+        <input id="fBusca" placeholder="Buscar nº, parte ou objeto" aria-label="Buscar">
+        <select id="fStatus" aria-label="Filtrar por status"><option value="">Todos os status</option><option value="vermelho">🔴 Problema</option><option value="amarelo">🟡 Pendente</option><option value="verde">🟢 Regular</option></select>
+        <button class="btn" id="btnNovo">Novo processo</button>
+      </div>
+    </div>
+    <div class="tscroll"><table>
+      <thead><tr><th></th><th>Processo</th><th>Partes</th><th>Objeto</th><th>Próximo prazo</th><th>Honorários</th><th>Próxima ação do perito</th></tr></thead>
+      <tbody class="click" id="lista"><tr><td colspan="7" class="empty">Carregando…</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <div class="card" id="novoCard" style="display:none">
+    <div class="ch"><h2>Novo processo</h2><span class="hint">Dados da intimação de nomeação. O restante é preenchido na ficha do processo.</span></div>
+    <div class="cb">
+      <div class="grid g3">
+        <div class="fld"><label for="nNumero">Número (CNJ) <span class="req">*</span></label><input id="nNumero" class="mono" placeholder="0000000-00.0000.0.00.0000"></div>
+        <div class="fld"><label for="nTribunal">Tribunal <span class="req">*</span></label><select id="nTribunal"><option value="">—</option><option>TJGO</option><option>TJDFT</option><option>Outro</option></select></div>
+        <div class="fld"><label for="nComarca">Comarca / circunscrição</label><input id="nComarca"></div>
+        <div class="fld"><label for="nVara">Vara</label><input id="nVara"></div>
+        <div class="fld"><label for="nNomeacao">Data da nomeação</label><input id="nNomeacao" type="date"></div>
+        <div class="fld"><label for="nNomeacaoId">ID da decisão de nomeação</label><input id="nNomeacaoId"></div>
+        <div class="fld span2"><label for="nObjeto">Objeto da perícia</label><input id="nObjeto"></div>
+        <div class="fld"><label>Módulo técnico</label><div id="nModulos" class="row"></div></div>
+      </div>
+      <div class="row end" style="margin-top:14px"><button class="btn ghost" id="btnCancelar">Cancelar</button><button class="btn" id="btnCriar">Criar e abrir</button></div>
+    </div>
+  </div>
+</div>
+<script src="pericia-core.js"></script>
+<script>
+"use strict";
+const { $, esc, dBR, brl, toast, api, post, montarNav, refs, pillSit } = SP;
+let LISTA = [];
+
+async function iniciar() {
+  try { await montarNav("processos.html"); } catch (e) { return; }
+  const R = await refs();
+  $("nModulos").innerHTML = R.modulos.map(m => `<label class="small row" style="gap:4px"><input type="checkbox" value="${esc(m.id)}"> ${esc(m.nome)}</label>`).join("");
+  await carregar();
+}
+async function carregar() {
+  try { LISTA = await api("/api/pericia/painel"); } catch (e) { toast(e.message, true); LISTA = []; }
+  render();
+}
+function render() {
+  const b = $("fBusca").value.trim().toLowerCase(), s = $("fStatus").value;
+  const f = LISTA.filter(p => (!s || p.status.cor === s) &&
+    (!b || [p.numero, p.parteAutora, p.parteRe, p.objeto, p.vara].join(" ").toLowerCase().includes(b)));
+  const ordem = { vermelho: 0, amarelo: 1, verde: 2 };
+  f.sort((a, c) => ordem[a.status.cor] - ordem[c.status.cor] || String(a.proximoPrazo?.dataLimite || "9").localeCompare(String(c.proximoPrazo?.dataLimite || "9")));
+  const cont = (c) => LISTA.filter(p => p.status.cor === c).length;
+  const saldo = LISTA.reduce((t, p) => t + (p.saldo > 0 ? p.saldo : 0), 0);
+  $("kpis").innerHTML = `<div class="kpi"><span>Processos ativos</span><b>${LISTA.length}</b></div>
+    <div class="kpi"><span>🔴 Com problema</span><b>${cont("vermelho")}</b></div>
+    <div class="kpi"><span>🟡 Dependem de documento</span><b>${cont("amarelo")}</b></div>
+    <div class="kpi"><span>Honorários a receber</span><b class="mono" style="font-size:20px">${brl(saldo)}</b></div>`;
+  $("lista").innerHTML = f.length ? f.map(p => `<tr data-id="${esc(p.id)}">
+    <td class="luzcel"><i class="l-${p.status.cor}" title="${esc(p.status.rotulo)}"></i></td>
+    <td><div class="mono" style="white-space:nowrap">${esc(p.numero || "sem número")}</div><div class="small muted">${esc([p.tribunal, p.vara].filter(Boolean).join(" · "))}</div></td>
+    <td class="small">${esc(p.parteAutora || "—")}<br><span class="muted">× ${esc(p.parteRe || "—")}</span></td>
+    <td class="small">${esc(p.objeto || "—")}</td>
+    <td>${p.proximoPrazo ? `${pillSit(p.proximoPrazo.situacao)}<div class="small">${esc(p.proximoPrazo.rotulo)} — ${dBR(p.proximoPrazo.dataLimite)}</div>` : '<span class="muted small">—</span>'}</td>
+    <td class="small mono">${p.honorariosArbitrados ? "Arb. " + brl(p.honorariosArbitrados) : p.honorariosPropostos ? "Prop. " + brl(p.honorariosPropostos) : "—"}${p.saldo > 0 ? `<br><span class="muted">saldo ${brl(p.saldo)}</span>` : ""}</td>
+    <td><div class="acao-min">${esc(p.proximaAcao.acao)}</div></td></tr>`).join("")
+    : `<tr><td colspan="7" class="empty">${LISTA.length ? "Nenhum processo com esse filtro." : "Nenhum processo ainda. Cadastre a primeira nomeação em “Novo processo”."}</td></tr>`;
+  document.querySelectorAll("#lista tr[data-id]").forEach(tr => tr.onclick = () => location.href = "processo.html?id=" + encodeURIComponent(tr.dataset.id));
+}
+$("fBusca").oninput = render; $("fStatus").onchange = render;
+$("btnNovo").onclick = () => { $("novoCard").style.display = "block"; $("nNumero").focus(); };
+$("btnCancelar").onclick = () => { $("novoCard").style.display = "none"; };
+$("btnCriar").onclick = async () => {
+  const body = { numero: $("nNumero").value.trim(), tribunal: $("nTribunal").value, comarca: $("nComarca").value.trim(), vara: $("nVara").value.trim(),
+    dataNomeacao: $("nNomeacao").value, nomeacaoId: $("nNomeacaoId").value.trim(), objeto: $("nObjeto").value.trim(),
+    modulos: [...document.querySelectorAll("#nModulos input:checked")].map(i => i.value) };
+  if (!body.numero || !body.tribunal) return toast("Informe número e tribunal.", true);
+  try {
+    const p = await post("/api/pericia/processos", body);
+    if (body.dataNomeacao) await post(`/api/pericia/processos/${p.id}/eventos`, { data: body.dataNomeacao, eventoId: body.nomeacaoId, documento: "Decisão de nomeação",
+      conteudo: "Nomeação do perito", consequencia: "Início do prazo de manifestação do perito", origem: { classe: "decisao_juizo", documentoId: body.nomeacaoId, data: body.dataNomeacao } }).catch(() => {});
+    location.href = "processo.html?id=" + encodeURIComponent(p.id);
+  } catch (e) { toast(e.message, true); }
+};
+iniciar();
+</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});}</script>
+</body>
+</html>

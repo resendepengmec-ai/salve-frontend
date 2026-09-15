@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SALVe — Normas e prazos</title>
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#2C383D">
+<link rel="icon" href="favicon-48.png"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>window.SALVE_API = "https://salve-backend.onrender.com";</script>
+<link rel="stylesheet" href="pericia.css">
+</head>
+<body>
+<div id="nav"></div>
+<div class="wrap">
+  <nav class="tabs" aria-label="Seções">
+    <button class="tab on" data-t="perfil">Perfil do perito</button>
+    <button class="tab" data-t="normas">Base normativa</button>
+    <button class="tab" data-t="feriados">Feriados e suspensões</button>
+    <button class="tab" data-t="calc">Calculadora de prazo</button>
+    <button class="tab" data-t="mods">Módulos técnicos</button>
+  </nav>
+
+  <section class="pane on" id="p-perfil">
+    <div class="card"><div class="ch"><h2>Perfil do perito</h2><span class="hint">Usado nas petições e no laudo.</span></div><div class="cb">
+      <div class="grid g3">
+        <div class="fld"><label for="pfNome">Nome completo</label><input id="pfNome"></div>
+        <div class="fld"><label for="pfCrea">CREA</label><input id="pfCrea"></div>
+        <div class="fld"><label for="pfForm">Formação</label><input id="pfForm" placeholder="Engenheiro Mecânico"></div>
+        <div class="fld"><label for="pfEmail">E-mail profissional</label><input id="pfEmail" type="email"></div>
+        <div class="fld"><label for="pfTel">Telefone</label><input id="pfTel"></div>
+        <div class="fld"><label for="pfCid">Cidade (local das petições)</label><input id="pfCid"></div>
+        <div class="fld spanall"><label for="pfEnd">Endereço profissional</label><input id="pfEnd"></div>
+        <div class="fld spanall"><label for="pfCv">Resumo do currículo / especializações</label><textarea id="pfCv" rows="4"></textarea></div>
+      </div>
+      <div class="row end" style="margin-top:12px"><button class="btn" id="pfSalvar">Salvar perfil</button></div>
+    </div></div>
+  </section>
+
+  <section class="pane" id="p-normas">
+    <div class="aviso">Nenhuma referência é tratada como vigente sem URL oficial e data de verificação. Tetos de honorários só entram em cálculo quando marcados como vigentes, com valor e fonte.</div>
+    <div class="card"><div class="ch"><h2>Referências</h2><input id="nBusca" placeholder="Filtrar" style="max-width:240px" aria-label="Filtrar referências"></div>
+      <div class="tscroll"><table><thead><tr><th>Referência</th><th>Tipo</th><th>Edição</th><th>Tribunal</th><th>Situação</th><th></th></tr></thead><tbody id="nLista"></tbody></table></div></div>
+    <div class="card"><div class="ch"><h2 id="nTitulo">Nova referência</h2></div><div class="cb">
+      <div class="grid g3">
+        <div class="fld span2"><label for="nIdent">Identificação</label><input id="nIdent"></div>
+        <div class="fld"><label for="nTipo">Tipo</label><select id="nTipo"></select></div>
+        <div class="fld"><label for="nEd">Edição / ano</label><input id="nEd"></div>
+        <div class="fld"><label for="nTrib">Tribunal (se específica)</label><select id="nTrib"><option value="">—</option><option>TJGO</option><option>TJDFT</option></select></div>
+        <div class="fld"><label for="nTema">Tema</label><input id="nTema"></div>
+        <div class="fld span2"><label for="nUrl">URL oficial</label><input id="nUrl" type="url"></div>
+        <div class="fld"><label for="nVer">Verificada em</label><input id="nVer" type="date"></div>
+        <div class="fld"><label for="nSt">Situação</label><select id="nSt"><option value="a_confirmar">Vigência a confirmar</option><option value="vigente">Vigente (verificada)</option><option value="revogada">Revogada</option></select></div>
+        <div class="fld" id="nValBox"><label for="nVal">Valor do teto (R$)</label><input id="nVal" type="number" step="any"></div>
+        <div class="fld" id="nNatBox"><label for="nNat">Natureza da perícia (teto)</label><input id="nNat" placeholder="opcional"></div>
+        <div class="fld spanall"><label for="nObs">Observações (dispositivos relevantes, alterações)</label><textarea id="nObs"></textarea></div>
+      </div>
+      <div class="row end" style="margin-top:12px"><button class="btn ghost" id="nLimpar">Limpar</button><button class="btn" id="nSalvar">Salvar referência</button></div>
+    </div></div>
+  </section>
+
+  <section class="pane" id="p-feriados">
+    <div class="card"><div class="ch"><h2>Feriados, pontos facultativos e suspensões de prazo</h2><span class="hint">Cadastre a partir do ato oficial de cada tribunal.</span></div>
+      <div class="tscroll"><table><thead><tr><th>Data / período</th><th>Tribunal</th><th>Descrição</th><th>Ato de origem</th><th></th></tr></thead><tbody id="fLista"></tbody></table></div>
+      <div class="cb"><div class="grid g4">
+        <div class="fld"><label for="fData">Data única</label><input id="fData" type="date"></div>
+        <div class="fld"><label for="fIni">ou início</label><input id="fIni" type="date"></div>
+        <div class="fld"><label for="fFim">fim</label><input id="fFim" type="date"></div>
+        <div class="fld"><label for="fTrib">Tribunal</label><select id="fTrib"><option value="">Todos</option><option>TJGO</option><option>TJDFT</option></select></div>
+        <div class="fld span2"><label for="fDesc">Descrição</label><input id="fDesc"></div>
+        <div class="fld span2"><label for="fFonte">Ato de origem (nº / link)</label><input id="fFonte"></div>
+      </div><div class="row end" style="margin-top:10px"><button class="btn" id="fSalvar">Adicionar</button></div></div></div>
+  </section>
+
+  <section class="pane" id="p-calc">
+    <div class="card"><div class="ch"><h2>Calculadora de prazo</h2><span class="hint">Não substitui a conferência da regra aplicável.</span></div><div class="cb">
+      <div class="grid g4">
+        <div class="fld"><label for="cRef">Data de referência</label><input id="cRef" type="date"></div>
+        <div class="fld"><label for="cDias">Dias</label><input id="cDias" type="number" min="1"></div>
+        <div class="fld"><label for="cCont">Contagem</label><select id="cCont"><option value="uteis">Dias úteis</option><option value="corridos">Dias corridos</option></select></div>
+        <div class="fld"><label for="cSent">Sentido</label><select id="cSent"><option value="apos">Após</option><option value="antes">Antecedência</option></select></div>
+        <div class="fld"><label for="cTrib">Tribunal</label><select id="cTrib"><option value="">—</option><option>TJGO</option><option>TJDFT</option></select></div>
+        <div class="fld"><label for="cRec">Suspender 20/dez–20/jan</label><select id="cRec"><option value="1">Sim</option><option value="0">Não</option></select></div>
+        <div class="fld"><label>&nbsp;</label><button class="btn" id="cCalc">Calcular</button></div>
+      </div>
+      <div id="cOut" style="margin-top:12px"></div>
+    </div></div>
+  </section>
+
+  <section class="pane" id="p-mods"><div id="mLista"></div></section>
+</div>
+<script src="pericia-core.js"></script>
+<script>
+"use strict";
+const { $, esc, dBR, brl, toast, api, post, del, montarNav, refs, optHTML } = SP;
+let R, NORMAS = [], EDIT = null;
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.id === "p-" + b.dataset.t));
+});
+
+async function iniciar() {
+  try { await montarNav("normas.html"); } catch (e) { return; }
+  R = await refs();
+  $("nTipo").innerHTML = optHTML(R.tiposNorma, "");
+  $("nTipo").onchange = tipoTeto; tipoTeto();
+  const pf = await api("/api/pericia/perfil");
+  [["pfNome", "nome"], ["pfCrea", "crea"], ["pfForm", "formacao"], ["pfEmail", "email"], ["pfTel", "telefone"], ["pfCid", "cidade"], ["pfEnd", "endereco"], ["pfCv", "curriculo"]].forEach(([i, k]) => $(i).value = pf[k] || "");
+  await Promise.all([carregarNormas(), carregarFeriados(), carregarModulos()]);
+}
+function tipoTeto() { const t = $("nTipo").value === "teto_honorarios"; $("nValBox").style.display = t ? "" : "none"; $("nNatBox").style.display = t ? "" : "none"; }
+
+$("pfSalvar").onclick = async () => {
+  try { await post("/api/pericia/perfil", { nome: $("pfNome").value, crea: $("pfCrea").value, formacao: $("pfForm").value, email: $("pfEmail").value,
+    telefone: $("pfTel").value, cidade: $("pfCid").value, endereco: $("pfEnd").value, curriculo: $("pfCv").value }); toast("Perfil salvo."); }
+  catch (e) { toast(e.message, true); }
+};
+
+async function carregarNormas() { NORMAS = await api("/api/pericia/normas"); renderNormas(); }
+function renderNormas() {
+  const b = $("nBusca").value.toLowerCase();
+  const l = NORMAS.filter(n => !b || [n.identificacao, n.tema, n.tipo, n.tribunal].join(" ").toLowerCase().includes(b));
+  $("nLista").innerHTML = l.map(n => `<tr><td>${esc(n.identificacao)}${n.tipo === "teto_honorarios" ? `<div class="small mono">${brl(n.valor)}${n.natureza ? " · " + esc(n.natureza) : ""}</div>` : ""}${n.urlOficial ? `<div class="small"><a href="${esc(n.urlOficial)}" target="_blank" rel="noopener">fonte oficial</a></div>` : ""}</td>
+    <td class="small">${esc(n.tipo)}</td><td class="small">${esc(n.edicao || "—")}</td><td class="small">${esc(n.tribunal || "—")}</td>
+    <td><span class="pill ${n.status === "vigente" && n.urlOficial ? "ok" : n.status === "revogada" ? "neu" : "at"}">${esc(n.vigencia)}</span></td>
+    <td class="row"><button class="btn sm ghost" data-ed="${esc(n.id)}">Editar</button>${n.semente ? "" : `<button class="btn sm danger" data-rm="${esc(n.id)}" aria-label="Excluir">✕</button>`}</td></tr>`).join("")
+    || '<tr><td colspan="6" class="empty">Nenhuma referência.</td></tr>';
+  document.querySelectorAll("#nLista [data-ed]").forEach(x => x.onclick = () => editar(NORMAS.find(n => n.id === x.dataset.ed)));
+  document.querySelectorAll("#nLista [data-rm]").forEach(x => x.onclick = async () => { if (!confirm("Excluir referência?")) return; try { await del("/api/pericia/normas/" + x.dataset.rm); await carregarNormas(); } catch (e) { toast(e.message, true); } });
+}
+$("nBusca").oninput = renderNormas;
+function editar(n) {
+  EDIT = n || null; n = n || {};
+  $("nTitulo").textContent = n.id ? "Editar referência" : "Nova referência";
+  $("nIdent").value = n.identificacao || ""; $("nTipo").value = n.tipo || "lei"; $("nEd").value = n.edicao || ""; $("nTrib").value = n.tribunal || "";
+  $("nTema").value = n.tema || ""; $("nUrl").value = n.urlOficial || ""; $("nVer").value = n.verificadoEm || ""; $("nSt").value = n.status || "a_confirmar";
+  $("nVal").value = n.valor || ""; $("nNat").value = n.natureza || ""; $("nObs").value = n.observacoes || ""; tipoTeto();
+  $("nIdent").focus();
+}
+$("nLimpar").onclick = () => editar(null);
+$("nSalvar").onclick = async () => {
+  const body = { ...(EDIT || {}), identificacao: $("nIdent").value.trim(), tipo: $("nTipo").value, edicao: $("nEd").value || null, tribunal: $("nTrib").value || null,
+    tema: $("nTema").value, urlOficial: $("nUrl").value || null, verificadoEm: $("nVer").value || null, status: $("nSt").value,
+    valor: $("nVal").value === "" ? null : Number($("nVal").value), natureza: $("nNat").value || null, observacoes: $("nObs").value };
+  delete body.vigencia;
+  try { await post("/api/pericia/normas", body); toast("Referência salva."); editar(null); await carregarNormas(); } catch (e) { toast(e.message, true); }
+};
+
+async function carregarFeriados() {
+  const l = (await api("/api/pericia/feriados")).sort((a, b) => String(a.data || a.inicio).localeCompare(String(b.data || b.inicio)));
+  $("fLista").innerHTML = l.map(f => `<tr><td>${f.data ? dBR(f.data) : dBR(f.inicio) + " a " + dBR(f.fim)}</td><td>${esc(f.tribunal || "Todos")}</td><td>${esc(f.descricao)}</td><td class="small">${esc(f.fonte || "—")}</td>
+    <td><button class="btn sm danger" data-rm="${esc(f.id)}" aria-label="Excluir">✕</button></td></tr>`).join("") || '<tr><td colspan="5" class="empty">Nenhum feriado cadastrado — o cálculo considera apenas fins de semana e o recesso.</td></tr>';
+  document.querySelectorAll("#fLista [data-rm]").forEach(x => x.onclick = async () => { try { await del("/api/pericia/feriados/" + x.dataset.rm); await carregarFeriados(); } catch (e) { toast(e.message, true); } });
+}
+$("fSalvar").onclick = async () => {
+  try { await post("/api/pericia/feriados", { data: $("fData").value || null, inicio: $("fIni").value || null, fim: $("fFim").value || null,
+    tribunal: $("fTrib").value || null, descricao: $("fDesc").value, fonte: $("fFonte").value });
+    ["fData", "fIni", "fFim", "fDesc", "fFonte"].forEach(i => $(i).value = ""); toast("Registro adicionado."); await carregarFeriados(); }
+  catch (e) { toast(e.message, true); }
+};
+
+$("cCalc").onclick = async () => {
+  try {
+    const r = await post("/api/pericia/prazos/calcular", { dataReferencia: $("cRef").value, dias: Number($("cDias").value), contagem: $("cCont").value,
+      sentido: $("cSent").value, tribunal: $("cTrib").value || null, recesso: $("cRec").value === "1" });
+    $("cOut").innerHTML = r.erro ? `<div class="blq">${esc(r.erro)}</div>` : `<div class="acao"><b>Data-limite</b><span class="mono" style="font-size:18px">${dBR(r.dataLimite)}</span><div class="small">${esc(r.memoria.join(" "))}</div></div>`;
+  } catch (e) { toast(e.message, true); }
+};
+
+async function carregarModulos() {
+  const r = await api("/api/modulos");
+  const det = await Promise.all(r.modulos.map(m => api("/api/modulos/" + m.id)));
+  $("mLista").innerHTML = det.map(m => `<div class="card"><div class="ch"><h2>${esc(m.nome)}</h2><span class="hint mono">${esc(m.id)} · v${esc(m.versao)}</span></div><div class="cb">
+    <p>${esc(m.descricao || "")}</p><div class="grid g3 small">
+    <div><b>Campos do objeto</b><br>${m.schemaObjeto.length}</div><div><b>Itens de checklist</b><br>${Object.values(m.checklists || {}).flat().length}</div><div><b>Ensaios catalogados</b><br>${m.ensaios.length}</div>
+    <div class="spanall"><b>Mecanismos de falha</b><br><span class="muted">${esc((m.mecanismos || []).join(" · "))}</span></div>
+    <div class="spanall"><b>Referências</b><br>${m.normasDetalhe.map(n => `${esc(n.identificacao)} — <span class="muted">${esc(n.vigencia)}</span>`).join("<br>") || "—"}</div>
+    ${(m.usa || []).includes("avaliacao-14653") ? '<div class="spanall"><span class="pill inf">Integra a avaliação NBR 14653 (ficha de avaliação)</span></div>' : ""}</div></div></div>`).join("")
+    + (r.falhas.length ? `<div class="blq">Módulos desabilitados: ${esc(r.falhas.map(f => f.arquivo + " — " + f.erros.join("; ")).join(" | "))}</div>` : "");
+}
+iniciar();
+</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});}</script>
+</body>
+</html>

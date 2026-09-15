@@ -1,6 +1,10 @@
 # SALVe — Frontend (GitHub Pages)
 
-Site estático. Cinco telas, todas conversando com o backend via `/api/...`:
+Site estático. Todas as telas conversam com o backend via `/api/...`:
+- `processos.html` — **painel de perícias** (porta de entrada após o login): status 🟢🟡🔴, prazos, honorários, próxima ação.
+- `processo.html` — ficha do processo: identificação, cronologia, escopo, quesitos, aceite, honorários, prazos, diligência, objeto/checklist do módulo, evidências, análise de falha, laudo (.docx), pós-laudo e financeiro.
+- `normas.html` — perfil do perito, base normativa, feriados/suspensões, calculadora de prazo e catálogo de módulos.
+- `pericia.css` / `pericia-core.js` — estilo e funções comuns das telas de perícia.
 - `index.html` — login (Google OAuth). Porta de entrada → abre Contratos.
 - `contratos.html` — o engenheiro cria contratos e, dentro de cada um, adiciona os itens avaliados.
 - `ficha-avaliacao.html` — ficha do bem (aberta a partir de um contrato, via `?contrato=`).
