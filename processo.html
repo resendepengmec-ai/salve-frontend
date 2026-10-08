@@ -28,7 +28,7 @@
 <script src="pericia-core.js"></script>
 <script>
 "use strict";
-const { $, esc, dBR, brl, hoje, toast, api, post, del, baixar, lerArquivo, montarNav, refs, optHTML,
+const { $, esc, dBR, brl, hoje, toast, api, post, del, baixar, lerArquivo, enviarEmBlocos, montarNav, refs, optHTML,
   origemHTML, lerOrigem, citar, pillClasse, editorLinhas, schemaHTML, lerSchema, docPainel, pillSit, pillStatus } = SP;
 const PID = new URLSearchParams(location.search).get("id");
 let D = null, R = null, MODS = {}, BENS = [], TAB = new URLSearchParams(location.search).get("aba") || "geral";
@@ -205,32 +205,22 @@ RENDER.ident = (el) => {
 // PDF consolidado dos autos (até 100 MB): enviado em blocos pequenos (nunca
 // o arquivo inteiro de uma vez, nem no navegador nem no servidor) e lido por
 // IA em segundo plano, também em blocos de páginas — a resposta do envio
-// volta na hora, sem esperar a leitura terminar. O resultado é um texto
-// corrido (rascunho) que o perito lê e transcreve manualmente para a
+// volta na hora, sem esperar a leitura terminar. Cada documento identificado
+// vira uma peça rascunho (aba "Peças processuais" abaixo) — revise e
+// confirme lá, exatamente como numa peça enviada manualmente, para a
 // cronologia/escopo; nada aqui grava evento sozinho.
-const TAM_BLOCO_AUTOS = 6 * 1024 * 1024; // 6 MB por bloco (~8 MB em base64, sob o limite de 12 MB do corpo da requisição)
 const ST_AUTOS = { processando: ["at", "Lendo em segundo plano…"], lido: ["ok", "Leitura concluída"], parcial: ["inf", "Concluído, com bloco(s) com erro"], erro: ["no", "Erro na leitura"] };
 let TIMER_AUTOS = null;
 function pillAutos(a) { const x = ST_AUTOS[a.status] || ["neu", a.status || "—"]; return `<span class="pill ${x[0]}">${esc(x[1])}</span>`; }
 async function enviarAutos() {
   const file = ($("atArq").files || [])[0];
   if (!file) return toast("Selecione um arquivo PDF.", true);
-  if (file.size > 100 * 1024 * 1024) return toast("Arquivo acima de 100 MB.", true);
   const prompt = val("atPrompt");
   const btn = $("atEnviar"), txt = btn.textContent;
   btn.disabled = true;
   try {
-    btn.textContent = "Iniciando envio…";
-    const { sessaoId } = await post(url("/autos/sessao"), {});
-    const total = Math.ceil(file.size / TAM_BLOCO_AUTOS) || 1;
-    for (let i = 0; i < total; i++) {
-      btn.textContent = `Enviando bloco ${i + 1}/${total}…`;
-      const b64 = await lerArquivo(file.slice(i * TAM_BLOCO_AUTOS, (i + 1) * TAM_BLOCO_AUTOS));
-      await post(url(`/autos/sessao/${sessaoId}/bloco`), { base64: b64 });
-    }
-    btn.textContent = "Concluindo envio…";
-    await post(url(`/autos/sessao/${sessaoId}/concluir`), { nomeOriginal: file.name, prompt });
-    toast("PDF enviado — a leitura por IA roda em segundo plano."); $("atArq").value = ""; $("atPrompt").value = "";
+    await enviarEmBlocos(url("/autos"), file, { nomeOriginal: file.name, prompt }, (i, total) => { btn.textContent = `Enviando bloco ${i}/${total}…`; });
+    toast("PDF enviado — a leitura por IA roda em segundo plano, criando peças rascunho para revisão."); $("atArq").value = ""; $("atPrompt").value = "";
     await recarregar(); if (TAB === "crono") mostrar("crono");
   } catch (e) { toast(e.message, true); }
   finally { if ($("atEnviar")) { $("atEnviar").disabled = false; $("atEnviar").textContent = txt; } }
@@ -244,7 +234,7 @@ function renderAutos(box) {
       ${a.erro ? `<div class="blq small">${esc(a.erro)}</div>` : ""}
       ${blocos.some((b) => b.status === "erro") ? `<div class="blq small">${blocos.filter((b) => b.status === "erro").map((b) => `Páginas ${b.paginaInicial}–${b.paginaFinal}: ${esc(b.erro)}`).join("; ")}</div>` : ""}
       ${a.prompt ? `<div class="small muted" style="margin-top:6px"><b>Instruções enviadas à IA:</b> ${esc(a.prompt)}</div>` : ""}
-      ${a.leituraConsolidada ? `<div class="fld" style="margin-top:8px"><label>Rascunho de leitura — revise e transcreva o que for relevante para a cronologia e o escopo</label><textarea rows="12" readonly>${esc(a.leituraConsolidada)}</textarea></div>` : ""}
+      ${a.leituraConsolidada ? `<div class="fld" style="margin-top:8px"><label>Resumo dos documentos identificados (já criados como peças rascunho abaixo)</label><textarea rows="12" readonly>${esc(a.leituraConsolidada)}</textarea></div>` : ""}
       <div class="row end" style="margin-top:10px"><button class="btn sm danger" data-rmaut="${esc(a.id)}">Excluir</button></div>
     </div></div>`;
   }).join("") : '<p class="muted small">Nenhum PDF consolidado enviado ainda.</p>';
@@ -281,13 +271,14 @@ function renderPecas(box) {
     const pontos = sug.pontosAlegados || [];
     return `<div class="card" style="margin-top:10px"><div class="ch"><h2>${esc(p.nomeOriginal || p.arquivo || "Peça")}</h2>${pillPeca(p)}</div><div class="cb">
       ${p.erroLeitura ? `<div class="blq small">${esc(p.erroLeitura)}</div>` : ""}
+      ${sug.incoerencia ? `<div class="blq small">⚠ Incoerência processual apontada pela IA: ${esc(sug.incoerencia)}</div>` : ""}
       <div class="grid g4">${sel(px + "_tipo", "Tipo", R.tiposPeca, p.tipo)}${sel(px + "_parte", "Parte", R.partesPeca, p.parte)}${fld(px + "_data", "Data", p.data, "date")}
-        <div class="fld"><label>&nbsp;</label><button class="btn sm ghost" data-baixar="${esc(p.id)}" type="button">Baixar PDF</button></div></div>
+        ${p.arquivo ? `<div class="fld"><label>&nbsp;</label><button class="btn sm ghost" data-baixar="${esc(p.id)}" type="button">Baixar PDF</button></div>` : `<div class="fld"><label>&nbsp;</label><span class="small muted">Do PDF consolidado dos autos${p.origemAutos ? `, p. ${p.origemAutos.paginaInicial}–${p.origemAutos.paginaFinal}` : ""}</span></div>`}</div>
       <div class="fld"><label for="${px}_resumo">Resumo (revise antes de confirmar)</label><textarea id="${px}_resumo" rows="3">${esc(p.resumoConfirmado || sug.resumoTese || "")}</textarea></div>
       ${pontos.length ? `<div class="fld"><label>Pontos identificados</label><ul class="small" style="margin:4px 0 0 18px;padding:0">${pontos.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
       ${sug.dispositivo ? `<div class="fld"><label>Dispositivo (se decisão)</label><div class="small">${esc(sug.dispositivo)}</div></div>` : ""}
       <div class="row end" style="margin-top:10px"><button class="btn sm danger" data-rm="${esc(p.id)}">Excluir</button>
-        ${p.status === "erro" ? `<button class="btn sm ghost" data-reler="${esc(p.id)}">Reler com IA</button>` : ""}
+        ${p.status === "erro" && p.arquivo ? `<button class="btn sm ghost" data-reler="${esc(p.id)}">Reler com IA</button>` : ""}
         ${!p.confirmado ? `<button class="btn sm" data-conf="${esc(p.id)}" data-px="${px}">Confirmar e adicionar à cronologia</button>` : ""}</div>
     </div></div>`;
   }).join("") : '<p class="muted small">Nenhuma peça enviada ainda.</p>';
@@ -305,7 +296,7 @@ function renderPecas(box) {
 RENDER.crono = (el) => {
   const ev = D.eventos.slice().sort((a, b) => String(a.data).localeCompare(String(b.data)));
   el.innerHTML = card("PDF consolidado dos autos (até 100 MB)", `
-      <p class="small muted">Para o histórico completo do processo (do início até a nomeação) ou outros lotes grandes de autos. Documento vai em blocos pequenos (não trava o navegador) e é lido pela IA em blocos de páginas, em segundo plano — use o campo de instruções para dizer o que priorizar na leitura.</p>
+      <p class="small muted">Para o histórico completo do processo (do início até a nomeação) ou outros lotes grandes de autos. Documento vai em blocos pequenos (não trava o navegador) e é lido pela IA em blocos de páginas, em segundo plano — cada petição/decisão identificada vira uma peça rascunho na lista abaixo, já sinalizando possíveis incoerências processuais. Use o campo de instruções para dizer o que priorizar na leitura.</p>
       ${R.leituraIaDisponivel ? "" : '<div class="aviso">Leitura automática por IA não configurada neste servidor.</div>'}
       <div class="fld spanall"><label for="atArq">PDF consolidado</label><input type="file" id="atArq" accept="application/pdf"></div>
       <div class="fld"><label for="atPrompt">Instruções para a IA (opcional) — ex.: "foque nas decisões sobre o objeto da perícia" ou "páginas 1–80 são a petição inicial e anexos"</label><textarea id="atPrompt" rows="2"></textarea></div>

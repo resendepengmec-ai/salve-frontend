@@ -50,6 +50,27 @@
   }
   const lerArquivo = (file) => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(file); });
 
+  // Upload em blocos de um arquivo grande (ex.: PDF consolidado dos autos,
+  // até 100 MB) contra uma rota .../autos: sessão → N blocos pequenos →
+  // concluir. Nunca o arquivo inteiro em memória de um lado nem do outro —
+  // cada bloco é uma fatia do arquivo (file.slice), lida e enviada por vez.
+  // `baseUrl` é a rota-mãe (ex.: "/api/pericia/processos/<id>/autos");
+  // `onProgresso(i, total)` é chamado antes de cada bloco, pra UI mostrar
+  // "enviando bloco 3/17…". Usado tanto na cronologia de um processo já
+  // existente quanto na criação de um processo novo a partir do PDF.
+  const TAM_BLOCO_GRANDE = 6 * 1024 * 1024; // ~8 MB em base64, sob o limite de 12 MB do corpo da requisição
+  async function enviarEmBlocos(baseUrl, file, extra, onProgresso) {
+    if (file.size > 100 * 1024 * 1024) throw new Error("Arquivo acima de 100 MB.");
+    const { sessaoId } = await post(baseUrl + "/sessao", {});
+    const total = Math.ceil(file.size / TAM_BLOCO_GRANDE) || 1;
+    for (let i = 0; i < total; i++) {
+      if (onProgresso) onProgresso(i + 1, total);
+      const b64 = await lerArquivo(file.slice(i * TAM_BLOCO_GRANDE, (i + 1) * TAM_BLOCO_GRANDE));
+      await post(`${baseUrl}/sessao/${sessaoId}/bloco`, { base64: b64 });
+    }
+    return post(`${baseUrl}/sessao/${sessaoId}/concluir`, extra || {});
+  }
+
   async function montarNav(ativo) {
     const nav = $("nav");
     const links = [["processos.html", "Perícias"], ["contratos.html", "Contratos"], ["bens.html", "Laudos"], ["normas.html", "Normas e prazos"], ["admin.html", "Usuários"]];
@@ -166,6 +187,6 @@
   const pillSit = (s) => { const x = SIT[s] || ["neu", s || "—"]; return `<span class="pill ${x[0]}">${esc(x[1])}</span>`; };
   const pillStatus = (st) => st ? `<span class="pill ${st.cor === "verde" ? "ok" : st.cor === "amarelo" ? "at" : "no"}" title="${esc((st.motivos || []).join("; "))}">${st.icone} ${esc(st.rotulo)}</span>` : "";
 
-  window.SP = { BASE, TOKEN, $, esc, dBR, brl, hoje, toast, api, post, del, baixar, lerArquivo, montarNav, refs, optHTML,
+  window.SP = { BASE, TOKEN, $, esc, dBR, brl, hoje, toast, api, post, del, baixar, lerArquivo, enviarEmBlocos, montarNav, refs, optHTML,
     origemHTML, lerOrigem, citar, rotClasse, pillClasse, editorLinhas, schemaHTML, lerSchema, docPainel, pillSit, pillStatus };
 })();

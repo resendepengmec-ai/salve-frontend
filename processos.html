@@ -47,6 +47,10 @@
   <div class="card" id="novoCard" style="display:none">
     <div class="ch"><h2>Novo processo</h2><span class="hint">Dados da intimação de nomeação. O restante é preenchido na ficha do processo.</span></div>
     <div class="cb">
+      <div class="aviso" id="avisoIaIndisponivel" style="display:none">Leitura automática por IA não configurada neste servidor — preencha os campos manualmente abaixo.</div>
+      <div class="fld spanall"><label for="nArq">Opcional: PDF da decisão de nomeação ou da capa/petição inicial do processo</label>
+        <div class="row" style="gap:8px"><input type="file" id="nArq" accept="application/pdf" style="flex:1"><button class="btn ghost" id="nLerPdf" type="button">Ler PDF e preencher</button></div>
+        <span class="small muted">A IA só sugere — confira e corrija os campos abaixo antes de criar o processo.</span></div>
       <div class="grid g3">
         <div class="fld"><label for="nNumero">Número (CNJ) <span class="req">*</span></label><input id="nNumero" class="mono" placeholder="0000000-00.0000.0.00.0000"></div>
         <div class="fld"><label for="nTribunal">Tribunal <span class="req">*</span></label><select id="nTribunal"><option value="">—</option><option>TJGO</option><option>TJDFT</option><option>Outro</option></select></div>
@@ -64,13 +68,21 @@
 <script src="pericia-core.js"></script>
 <script>
 "use strict";
-const { $, esc, dBR, brl, toast, api, post, montarNav, refs, pillSit } = SP;
+const { $, esc, dBR, brl, toast, api, post, montarNav, refs, pillSit, lerArquivo, enviarEmBlocos } = SP;
 let LISTA = [];
+let R = null, ULTIMA_LEITURA = null;
+
+// Instrução padrão da leitura completa dos autos disparada na criação —
+// a mesma ênfase que o perito pediu explicitamente: cronologia, decisões
+// e controvérsias, sobretudo incoerências processuais entre peças/decisões.
+const PROMPT_PADRAO_CRIACAO = "Dê atenção especial à cronologia completa (todas as petições e decisões, em ordem), ao que cada decisão determinou, e a incoerências processuais — decisões que se contradizem, uma peça que ignora algo já decidido, ou ordem de atos incompatível.";
 
 async function iniciar() {
   try { await montarNav("processos.html"); } catch (e) { return; }
-  const R = await refs();
+  R = await refs();
   $("nModulos").innerHTML = R.modulos.map(m => `<label class="small row" style="gap:4px"><input type="checkbox" value="${esc(m.id)}"> ${esc(m.nome)}</label>`).join("");
+  $("avisoIaIndisponivel").style.display = R.leituraIaDisponivel ? "none" : "block";
+  $("nLerPdf").disabled = !R.leituraIaDisponivel;
   await carregar();
 }
 async function carregar() {
@@ -103,17 +115,59 @@ function render() {
 $("fBusca").oninput = render; $("fStatus").onchange = render;
 $("btnNovo").onclick = () => { $("novoCard").style.display = "block"; $("nNumero").focus(); };
 $("btnCancelar").onclick = () => { $("novoCard").style.display = "none"; };
+
+$("nLerPdf").onclick = async () => {
+  const file = ($("nArq").files || [])[0];
+  if (!file) return toast("Selecione um arquivo PDF.", true);
+  if (file.size > 8 * 1024 * 1024) return toast("Para pré-preencher, envie só a decisão de nomeação ou a capa (até 8 MB) — o processo completo pode ser lido depois de criar, na aba Cronologia.", true);
+  const btn = $("nLerPdf"), txt = btn.textContent;
+  btn.disabled = true; btn.textContent = "Lendo com IA…";
+  try {
+    const b64 = await lerArquivo(file);
+    const leitura = await post("/api/pericia/processos/ler-pdf", { arquivoBase64: b64 }, 180000);
+    const s = leitura.sugestao; ULTIMA_LEITURA = s;
+    if (s.numero) $("nNumero").value = s.numero;
+    if (s.comarca) $("nComarca").value = s.comarca;
+    if (s.vara) $("nVara").value = s.vara;
+    if (s.dataNomeacao) $("nNomeacao").value = s.dataNomeacao;
+    if (s.nomeacaoId) $("nNomeacaoId").value = s.nomeacaoId;
+    if (s.objeto) $("nObjeto").value = s.objeto;
+    if (s.tribunal) {
+      const opt = [...$("nTribunal").options].find(o => o.value.toLowerCase() === s.tribunal.toLowerCase());
+      if (opt) $("nTribunal").value = opt.value;
+      else { $("nTribunal").value = "Outro"; toast(`Tribunal detectado "${s.tribunal}" não está na lista — selecionado "Outro", confira.`); }
+    }
+    toast("Campos preenchidos pela IA — confira antes de criar.");
+  } catch (e) { toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = txt; }
+};
+
 $("btnCriar").onclick = async () => {
+  const file = ($("nArq").files || [])[0];
   const body = { numero: $("nNumero").value.trim(), tribunal: $("nTribunal").value, comarca: $("nComarca").value.trim(), vara: $("nVara").value.trim(),
     dataNomeacao: $("nNomeacao").value, nomeacaoId: $("nNomeacaoId").value.trim(), objeto: $("nObjeto").value.trim(),
-    modulos: [...document.querySelectorAll("#nModulos input:checked")].map(i => i.value) };
+    modulos: [...document.querySelectorAll("#nModulos input:checked")].map(i => i.value),
+    partes: (ULTIMA_LEITURA && ULTIMA_LEITURA.partes || []).filter(p => p.polo) };
   if (!body.numero || !body.tribunal) return toast("Informe número e tribunal.", true);
+  const btn = $("btnCriar"), txt = btn.textContent;
+  btn.disabled = true;
   try {
     const p = await post("/api/pericia/processos", body);
     if (body.dataNomeacao) await post(`/api/pericia/processos/${p.id}/eventos`, { data: body.dataNomeacao, eventoId: body.nomeacaoId, documento: "Decisão de nomeação",
       conteudo: "Nomeação do perito", consequencia: "Início do prazo de manifestação do perito", origem: { classe: "decisao_juizo", documentoId: body.nomeacaoId, data: body.dataNomeacao } }).catch(() => {});
+    // Mesmo PDF usado pra pré-preencher (ou outro, se o perito trocou o
+    // arquivo) agora alimenta a leitura completa — cronologia, decisões e
+    // controvérsias — em segundo plano, criando peças rascunho no processo
+    // recém-criado. Nunca bloqueia a criação: falha aqui não desfaz o processo.
+    if (file && R.leituraIaDisponivel) {
+      try {
+        await enviarEmBlocos(`/api/pericia/processos/${p.id}/autos`, file, { nomeOriginal: file.name, prompt: PROMPT_PADRAO_CRIACAO },
+          (i, total) => { btn.textContent = `Processo criado — enviando PDF para leitura completa (bloco ${i}/${total})…`; });
+      } catch (e) { toast("Processo criado, mas o envio do PDF para leitura completa falhou: " + e.message, true); }
+    }
     location.href = "processo.html?id=" + encodeURIComponent(p.id);
   } catch (e) { toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = txt; }
 };
 iniciar();
 </script>
