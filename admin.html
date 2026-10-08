@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<!-- CSP: script-src ainda precisa de 'unsafe-inline' porque todo o JS do app vive
+     inline em cada HTML (sem etapa de build); script-src 'self' sozinho fecharia
+     a execucao das paginas. accounts.google.com cobre o SDK de login (GSI) e o
+     popup/iframe de autenticacao; salve-backend.onrender.com e a API. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://salve-backend.onrender.com https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'none'; form-action 'self';">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>SALVe — Usuários</title>
@@ -14,7 +19,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script>window.SALVE_API = "https://salve-backend.onrender.com";</script>
+<script src="config.js"></script>
 <style>
   :root{--paper:#EEF0ED;--sheet:#FCFCFB;--ink:#1B2021;--muted:#6B7476;--steel:#2C383D;--hair:#D9DEDA;--hair2:#E7EAE6;--value:#0B6E4F;--value-bg:#E7F1EC;--blue:#16506B;--blue-bg:#E5EEF2;--warn:#9A3B24;--warn-bg:#f3e2dd;}
   *{box-sizing:border-box}html,body{margin:0}
@@ -129,7 +134,9 @@ function fmtDate(ms){if(!ms)return "—";try{return new Date(ms).toLocaleDateStr
 if(!BASE||!TOKEN) location.href="index.html";
 
 async function api(path,opts={}){
-  const r=await fetch(BASE+path,{...opts,headers:{"Content-Type":"application/json","Authorization":"Bearer "+TOKEN,...(opts.headers||{})}});
+  const init={...opts,headers:{"Content-Type":"application/json","Authorization":"Bearer "+TOKEN,...(opts.headers||{})}};
+  let timer; if(opts.timeoutMs){ const ac=new AbortController(); init.signal=ac.signal; timer=setTimeout(()=>ac.abort(),opts.timeoutMs); }
+  let r; try{ r=await fetch(BASE+path,init); } catch(e){ if(e.name==="AbortError") throw new Error("Tempo esgotado aguardando resposta — tente novamente."); throw e; } finally{ if(timer) clearTimeout(timer); }
   const j=await r.json().catch(()=>({}));
   if(r.status===401){ try{localStorage.removeItem("salve_api")}catch(e){}; location.href="index.html"; throw new Error("sessão"); }
   if(!r.ok||j.ok===false) throw new Error(j.error||("HTTP "+r.status));

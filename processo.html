@@ -1,13 +1,18 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<!-- CSP: script-src ainda precisa de 'unsafe-inline' porque todo o JS do app vive
+     inline em cada HTML (sem etapa de build); script-src 'self' sozinho fecharia
+     a execucao das paginas. accounts.google.com cobre o SDK de login (GSI) e o
+     popup/iframe de autenticacao; salve-backend.onrender.com e a API. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://salve-backend.onrender.com https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'none'; form-action 'self';">
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>SALVe — Processo</title>
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#2C383D">
 <link rel="icon" href="favicon-48.png"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script>window.SALVE_API = "https://salve-backend.onrender.com";</script>
+<script src="config.js"></script>
 <link rel="stylesheet" href="pericia.css">
 </head>
 <body>
@@ -69,8 +74,8 @@ async function excluirFilho(col, id) {
   if (!confirm("Excluir este registro?")) return;
   try { await del(url(`/${col}/${id}`)); toast("Registro excluído."); await recarregar(); } catch (e) { toast(e.message, true); }
 }
-async function fluxo(cmd, body) {
-  try { return await post(url("/fluxos/" + cmd), body || {}); } catch (e) { toast(e.message, true); return null; }
+async function fluxo(cmd, body, timeoutMs) {
+  try { return await post(url("/fluxos/" + cmd), body || {}, timeoutMs); } catch (e) { toast(e.message, true); return null; }
 }
 
 // ── cabeçalho (semáforo) ──
@@ -197,12 +202,131 @@ RENDER.ident = (el) => {
 };
 
 // ── Cronologia ──
+// PDF consolidado dos autos (até 100 MB): enviado em blocos pequenos (nunca
+// o arquivo inteiro de uma vez, nem no navegador nem no servidor) e lido por
+// IA em segundo plano, também em blocos de páginas — a resposta do envio
+// volta na hora, sem esperar a leitura terminar. O resultado é um texto
+// corrido (rascunho) que o perito lê e transcreve manualmente para a
+// cronologia/escopo; nada aqui grava evento sozinho.
+const TAM_BLOCO_AUTOS = 6 * 1024 * 1024; // 6 MB por bloco (~8 MB em base64, sob o limite de 12 MB do corpo da requisição)
+const ST_AUTOS = { processando: ["at", "Lendo em segundo plano…"], lido: ["ok", "Leitura concluída"], parcial: ["inf", "Concluído, com bloco(s) com erro"], erro: ["no", "Erro na leitura"] };
+let TIMER_AUTOS = null;
+function pillAutos(a) { const x = ST_AUTOS[a.status] || ["neu", a.status || "—"]; return `<span class="pill ${x[0]}">${esc(x[1])}</span>`; }
+async function enviarAutos() {
+  const file = ($("atArq").files || [])[0];
+  if (!file) return toast("Selecione um arquivo PDF.", true);
+  if (file.size > 100 * 1024 * 1024) return toast("Arquivo acima de 100 MB.", true);
+  const prompt = val("atPrompt");
+  const btn = $("atEnviar"), txt = btn.textContent;
+  btn.disabled = true;
+  try {
+    btn.textContent = "Iniciando envio…";
+    const { sessaoId } = await post(url("/autos/sessao"), {});
+    const total = Math.ceil(file.size / TAM_BLOCO_AUTOS) || 1;
+    for (let i = 0; i < total; i++) {
+      btn.textContent = `Enviando bloco ${i + 1}/${total}…`;
+      const b64 = await lerArquivo(file.slice(i * TAM_BLOCO_AUTOS, (i + 1) * TAM_BLOCO_AUTOS));
+      await post(url(`/autos/sessao/${sessaoId}/bloco`), { base64: b64 });
+    }
+    btn.textContent = "Concluindo envio…";
+    await post(url(`/autos/sessao/${sessaoId}/concluir`), { nomeOriginal: file.name, prompt });
+    toast("PDF enviado — a leitura por IA roda em segundo plano."); $("atArq").value = ""; $("atPrompt").value = "";
+    await recarregar(); if (TAB === "crono") mostrar("crono");
+  } catch (e) { toast(e.message, true); }
+  finally { if ($("atEnviar")) { $("atEnviar").disabled = false; $("atEnviar").textContent = txt; } }
+}
+function renderAutos(box) {
+  const lista = (D.autos || []).slice().sort((a, b) => String(b._updatedAt || 0).localeCompare(String(a._updatedAt || 0)));
+  box.innerHTML = lista.length ? lista.map((a) => {
+    const blocos = a.blocos || [], lidos = blocos.filter((b) => b.status === "lido").length;
+    return `<div class="card" style="margin-top:10px"><div class="ch"><h2>${esc(a.nomeOriginal || "Autos")}</h2>${pillAutos(a)}</div><div class="cb">
+      <div class="small muted">${blocos.length ? `${lidos}/${blocos.length} blocos lidos${a.totalPaginas ? " · " + a.totalPaginas + " páginas" : ""}` : "Dividindo o PDF em blocos de páginas…"}</div>
+      ${a.erro ? `<div class="blq small">${esc(a.erro)}</div>` : ""}
+      ${blocos.some((b) => b.status === "erro") ? `<div class="blq small">${blocos.filter((b) => b.status === "erro").map((b) => `Páginas ${b.paginaInicial}–${b.paginaFinal}: ${esc(b.erro)}`).join("; ")}</div>` : ""}
+      ${a.prompt ? `<div class="small muted" style="margin-top:6px"><b>Instruções enviadas à IA:</b> ${esc(a.prompt)}</div>` : ""}
+      ${a.leituraConsolidada ? `<div class="fld" style="margin-top:8px"><label>Rascunho de leitura — revise e transcreva o que for relevante para a cronologia e o escopo</label><textarea rows="12" readonly>${esc(a.leituraConsolidada)}</textarea></div>` : ""}
+      <div class="row end" style="margin-top:10px"><button class="btn sm danger" data-rmaut="${esc(a.id)}">Excluir</button></div>
+    </div></div>`;
+  }).join("") : '<p class="muted small">Nenhum PDF consolidado enviado ainda.</p>';
+  box.querySelectorAll("[data-rmaut]").forEach((b) => b.onclick = () => excluirFilho("autos", b.dataset.rmaut));
+}
+
+// Peças processuais (PDF): upload → leitura por IA (sugestão) → revisão do
+// perito → confirmação, que é o que de fato grava um evento na cronologia
+// (com origem rastreável à peça). Nada que a IA devolve vira fato sozinho.
+const ST_PECA = { processando: ["at", "Lendo…"], lido: ["inf", "Lido — revisar"], erro: ["no", "Erro na leitura"] };
+function pillPeca(p) {
+  if (p.confirmado) return '<span class="pill ok">Na cronologia</span>';
+  const x = ST_PECA[p.status] || ["neu", p.status || "—"];
+  return `<span class="pill ${x[0]}">${esc(x[1])}</span>`;
+}
+async function enviarPeca() {
+  const file = ($("pzArq").files || [])[0];
+  if (!file) return toast("Selecione um arquivo PDF.", true);
+  if (file.size > 8 * 1024 * 1024) return toast("Arquivo acima de 8 MB.", true);
+  const b64 = await lerArquivo(file);
+  const btn = $("pzEnviar"), txt = btn.textContent;
+  btn.disabled = true; btn.textContent = "Enviando e lendo com IA (pode levar até 3 min)…";
+  try {
+    await post(url("/pecas"), { arquivoBase64: b64, nomeOriginal: file.name, tipo: val("pzTipo"), parte: val("pzParte"), data: val("pzData") }, 180000);
+    toast("PDF enviado."); await recarregar();
+  } catch (e) { toast(e.message, true); }
+  finally { if ($("pzEnviar")) { $("pzEnviar").disabled = false; $("pzEnviar").textContent = txt; } }
+}
+function renderPecas(box) {
+  const pecas = (D.pecas || []).slice().sort((a, b) => String(b._updatedAt || 0).localeCompare(String(a._updatedAt || 0)));
+  box.innerHTML = pecas.length ? pecas.map((p, i) => {
+    const px = "pz" + i;
+    const sug = (p.leituraIA && p.leituraIA.sugestao) || {};
+    const pontos = sug.pontosAlegados || [];
+    return `<div class="card" style="margin-top:10px"><div class="ch"><h2>${esc(p.nomeOriginal || p.arquivo || "Peça")}</h2>${pillPeca(p)}</div><div class="cb">
+      ${p.erroLeitura ? `<div class="blq small">${esc(p.erroLeitura)}</div>` : ""}
+      <div class="grid g4">${sel(px + "_tipo", "Tipo", R.tiposPeca, p.tipo)}${sel(px + "_parte", "Parte", R.partesPeca, p.parte)}${fld(px + "_data", "Data", p.data, "date")}
+        <div class="fld"><label>&nbsp;</label><button class="btn sm ghost" data-baixar="${esc(p.id)}" type="button">Baixar PDF</button></div></div>
+      <div class="fld"><label for="${px}_resumo">Resumo (revise antes de confirmar)</label><textarea id="${px}_resumo" rows="3">${esc(p.resumoConfirmado || sug.resumoTese || "")}</textarea></div>
+      ${pontos.length ? `<div class="fld"><label>Pontos identificados</label><ul class="small" style="margin:4px 0 0 18px;padding:0">${pontos.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+      ${sug.dispositivo ? `<div class="fld"><label>Dispositivo (se decisão)</label><div class="small">${esc(sug.dispositivo)}</div></div>` : ""}
+      <div class="row end" style="margin-top:10px"><button class="btn sm danger" data-rm="${esc(p.id)}">Excluir</button>
+        ${p.status === "erro" ? `<button class="btn sm ghost" data-reler="${esc(p.id)}">Reler com IA</button>` : ""}
+        ${!p.confirmado ? `<button class="btn sm" data-conf="${esc(p.id)}" data-px="${px}">Confirmar e adicionar à cronologia</button>` : ""}</div>
+    </div></div>`;
+  }).join("") : '<p class="muted small">Nenhuma peça enviada ainda.</p>';
+  box.querySelectorAll("[data-baixar]").forEach(b => b.onclick = async () => { try { const d = await api(url("/pecas/" + b.dataset.baixar + "/arquivo")); baixar(d.nome, d.base64, "application/pdf"); } catch (e) { toast(e.message, true); } });
+  box.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => excluirFilho("pecas", b.dataset.rm));
+  box.querySelectorAll("[data-reler]").forEach(b => b.onclick = async () => { try { await post(url("/pecas/" + b.dataset.reler + "/reler"), {}, 180000); toast("Peça relida."); await recarregar(); } catch (e) { toast(e.message, true); } });
+  box.querySelectorAll("[data-conf]").forEach(b => b.onclick = async () => {
+    const px = b.dataset.px;
+    try {
+      await post(url("/pecas/" + b.dataset.conf + "/confirmar"), { tipo: val(px + "_tipo"), parte: val(px + "_parte"), data: val(px + "_data"), resumo: val(px + "_resumo") });
+      toast("Peça confirmada e adicionada à cronologia."); await recarregar();
+    } catch (e) { toast(e.message, true); }
+  });
+}
 RENDER.crono = (el) => {
   const ev = D.eventos.slice().sort((a, b) => String(a.data).localeCompare(String(b.data)));
-  el.innerHTML = card("Cronologia processual", `<div class="tscroll"><table><thead><tr><th>Data</th><th>Evento/ID</th><th>Documento</th><th>Conteúdo relevante</th><th>Consequência para o perito</th><th>Natureza</th><th></th></tr></thead><tbody>
+  el.innerHTML = card("PDF consolidado dos autos (até 100 MB)", `
+      <p class="small muted">Para o histórico completo do processo (do início até a nomeação) ou outros lotes grandes de autos. Documento vai em blocos pequenos (não trava o navegador) e é lido pela IA em blocos de páginas, em segundo plano — use o campo de instruções para dizer o que priorizar na leitura.</p>
+      ${R.leituraIaDisponivel ? "" : '<div class="aviso">Leitura automática por IA não configurada neste servidor.</div>'}
+      <div class="fld spanall"><label for="atArq">PDF consolidado</label><input type="file" id="atArq" accept="application/pdf"></div>
+      <div class="fld"><label for="atPrompt">Instruções para a IA (opcional) — ex.: "foque nas decisões sobre o objeto da perícia" ou "páginas 1–80 são a petição inicial e anexos"</label><textarea id="atPrompt" rows="2"></textarea></div>
+      <div class="row end" style="margin-top:8px"><button class="btn" id="atEnviar">Enviar e processar</button></div>
+      <div id="atLista" style="margin-top:4px"></div>`) +
+    card("Peças processuais (PDF)", `
+      ${R.leituraIaDisponivel ? "" : '<div class="aviso">Leitura automática por IA não configurada neste servidor — envie o PDF e preencha tipo, parte, data e resumo manualmente antes de confirmar.</div>'}
+      <div class="grid g4"><div class="fld spanall"><label for="pzArq">PDF da petição ou decisão (até 8 MB)</label><input type="file" id="pzArq" accept="application/pdf"></div>
+      ${sel("pzTipo", "Tipo (opcional — a IA sugere)", R.tiposPeca, "")}${sel("pzParte", "Parte (opcional — a IA sugere)", R.partesPeca, "")}${fld("pzData", "Data (opcional — a IA sugere)", "", "date")}</div>
+      <div class="row end" style="margin-top:8px"><button class="btn" id="pzEnviar">Enviar e ler</button></div>
+      <div id="pzLista" style="margin-top:4px"></div>`) +
+    card("Cronologia processual", `<div class="tscroll"><table><thead><tr><th>Data</th><th>Evento/ID</th><th>Documento</th><th>Conteúdo relevante</th><th>Consequência para o perito</th><th>Natureza</th><th></th></tr></thead><tbody>
     ${ev.length ? ev.map(e => `<tr><td>${dBR(e.data)}</td><td class="mono">${esc(e.eventoId || "")}</td><td>${esc(e.documento || "")}<div class="small muted">${citar(e.origem)}</div></td><td>${esc(e.conteudo)}</td><td>${esc(e.consequencia || "")}</td><td>${pillClasse(e.origem?.classe)}</td>
       <td class="row"><button class="btn sm ghost" data-ed="${esc(e.id)}">Editar</button><button class="btn sm danger" data-rm="${esc(e.id)}" aria-label="Excluir">✕</button></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Registre as movimentações relevantes, sem omitir decisões relacionadas à perícia.</td></tr>'}
     </tbody></table></div>`) + `<div id="formEv"></div>`;
+  renderAutos($("atLista"));
+  $("atEnviar").onclick = enviarAutos;
+  clearTimeout(TIMER_AUTOS);
+  if ((D.autos || []).some(a => a.status === "processando")) TIMER_AUTOS = setTimeout(async () => { await recarregar(); if (TAB === "crono") mostrar("crono"); }, 6000);
+  renderPecas($("pzLista"));
+  $("pzEnviar").onclick = enviarPeca;
   const form = (e) => {
     e = e || {};
     $("formEv").innerHTML = card(e.id ? "Editar evento" : "Novo evento", `<div class="grid g4">
@@ -224,7 +348,13 @@ const ESCOPO = [["alegacaoAutor", "Alegação do autor", ["alegacao_parte"]], ["
   ["questoesPericia", "Questões efetivamente submetidas à perícia"]];
 RENDER.escopo = (el) => {
   const e = P().escopo || {};
+  const confirmadas = (D.pecas || []).filter(p => p.confirmado).length;
   el.innerHTML = `<div class="aviso">Alegações de parte são sempre registradas como alegação — nunca como fato comprovado.</div>` +
+    card("Rascunho de controvérsias por IA", `
+      <p class="small muted">Gera um rascunho de "Pontos incontroversos", "Pontos controvertidos" e "Questões submetidas à perícia" a partir das peças já confirmadas na cronologia (${confirmadas} confirmada${confirmadas === 1 ? "" : "s"}). O texto preenche os campos abaixo para revisão — nada é salvo automaticamente.</p>
+      ${R.leituraIaDisponivel ? "" : '<div class="aviso">Leitura automática por IA não configurada neste servidor.</div>'}
+      <div class="row end"><button class="btn ghost" id="bControversias"${confirmadas < 2 ? " disabled" : ""}>Gerar rascunho de controvérsias com IA</button></div>
+      ${confirmadas < 2 ? '<p class="small muted">Confirme ao menos duas peças (idealmente uma de cada parte) para habilitar.</p>' : ""}`) +
     ESCOPO.map(([k, t, cl]) => card(t, `<div class="fld"><textarea id="s_${k}" rows="3">${esc(e[k]?.texto || "")}</textarea></div>
       ${origemHTML("so_" + k, e[k]?.origem, { classes: cl, padrao: cl ? cl[0] : "fato_autos" })}`)).join("") +
     `<div class="row end"><button class="btn" id="bEscopo">Salvar escopo</button></div>`;
@@ -232,6 +362,22 @@ RENDER.escopo = (el) => {
     const escopo = {};
     ESCOPO.forEach(([k]) => { const t = val("s_" + k).trim(); if (t) escopo[k] = { texto: t, origem: lerOrigem("so_" + k) }; });
     salvarProc({ escopo }, "Escopo salvo.");
+  };
+  if ($("bControversias")) $("bControversias").onclick = async () => {
+    const btn = $("bControversias"), txt = btn.textContent;
+    btn.disabled = true; btn.textContent = "Gerando rascunho (pode levar até 3 min)…";
+    try {
+      const out = await fluxo("sintetizar_controversias", {}, 180000);
+      if (out && out.resultado) {
+        const r = out.resultado;
+        [["incontroversos", r.incontroversos], ["controvertidos", r.controvertidos], ["questoesPericia", r.questoesPericia]].forEach(([k, texto]) => {
+          if (!texto) return;
+          $("s_" + k).value = texto;
+          const cSel = $("so_" + k + "_classe"); if (cSel) cSel.value = "analise";
+        });
+        toast("Rascunho gerado — revise o texto e clique em Salvar escopo.");
+      }
+    } finally { if ($("bControversias")) { $("bControversias").disabled = false; $("bControversias").textContent = txt; } }
   };
 };
 
@@ -415,21 +561,46 @@ RENDER.objeto = (el) => {
   if ($("oAdd")) $("oAdd").onclick = () => salvarFilho("objetos", { moduloId: val("oNovo"), dados: {}, checklist: {} }, "Objeto adicionado.");
   D.objetos.forEach((o, i) => renderObjeto($("obj_" + o.id), o, i));
 };
+/* Um item só "abre" depois que as características que o condicionam são informadas.
+   Só se aplica a módulos que declaram `blocos` (sequência de checklist por bloco,
+   ex.: elevadores): todo bloco além do primeiro (identificação) fica oculto até haver
+   um TIPO escolhido; itens com `tipos`/`tiposExcluidos`/`acionamentos` próprios refinam
+   ainda mais o filtro. Módulos sem `blocos` (comportamento antigo) não são afetados. */
+function itemAplicavel(it, dados, m) {
+  const d = dados || {};
+  const blocoInicial = m && Array.isArray(m.blocos) && m.blocos.length ? m.blocos[0].id : null;
+  if (blocoInicial && it.grupo !== blocoInicial && !d.tipo) return false;
+  if (it.tipos && (!d.tipo || !it.tipos.includes(d.tipo))) return false;
+  if (it.tiposExcluidos && d.tipo && it.tiposExcluidos.includes(d.tipo)) return false;
+  if (it.acionamentos && (!d.acionamento || !it.acionamentos.includes(d.acionamento))) return false;
+  return true;
+}
+function nomeBloco(m, gid) {
+  const b = (m.blocos || []).find(x => x.id === gid);
+  return b ? `${b.nome}${b.ref ? " — " + b.ref : ""}` : gid;
+}
 function renderObjeto(box, o, i) {
   const m = MODS[o.moduloId];
   if (!m) { box.innerHTML = card("Objeto " + (i + 1), `<p class="blq">Módulo ${esc(o.moduloId)} indisponível.</p>`); return; }
   const px = "o" + i;
-  const itens = Object.values(m.checklists || {}).flat();
-  const grupos = [...new Set(itens.map(x => x.grupo))];
+  const dadosAtuais = o.dados || {};
+  const todosItens = Object.values(m.checklists || {}).flat();
+  const itens = todosItens.filter(it => itemAplicavel(it, dadosAtuais, m));
+  const grupos = (m.blocos && m.blocos.length)
+    ? m.blocos.map(b => b.id).filter(gid => itens.some(x => x.grupo === gid))
+    : [...new Set(itens.map(x => x.grupo))];
   const feitos = itens.filter(x => o.checklist?.[x.id]?.status && o.checklist[x.id].status !== "pendente").length;
+  const blocoInicial = m.blocos && m.blocos.length ? m.blocos[0].id : null;
+  const fechado = !!blocoInicial && todosItens.some(it => it.grupo !== blocoInicial) && !itens.some(it => it.grupo !== blocoInicial);
   box.innerHTML = card(`Objeto ${i + 1} — ${m.nome}`, `
     ${(o.alertas || []).length ? `<div class="aviso"><ul style="margin:0 0 0 18px;padding:0">${o.alertas.map(a => `<li>${esc(a)}</li>`).join("")}</ul></div>` : ""}
-    ${schemaHTML(m.schemaObjeto, o.dados || {}, px, BENS)}
+    ${schemaHTML(m.schemaObjeto, dadosAtuais, px, BENS)}
     <div class="chk-grupo">Ensaios e medições previstos</div><div class="row small" id="${px}_ens">${m.ensaios.map(e => `<label class="row" style="gap:4px"><input type="checkbox" value="${esc(e.id)}"${(o.ensaiosSelecionados || []).includes(e.id) ? " checked" : ""}> ${esc(e.nome)}${e.requerCustodia ? ' <span class="pill at">custódia</span>' : ""}</label>`).join("")}</div>
-    <div class="chk-grupo" style="margin-top:18px">Checklist de diligência <span class="pill ${feitos === itens.length ? "ok" : "at"}">${feitos}/${itens.length}</span></div>
-    ${grupos.map(g => `<div class="small muted" style="margin-top:10px;font-weight:600">${esc(g)}</div>` + itens.filter(x => x.grupo === g).map(it => {
+    <div class="chk-grupo" style="margin-top:18px">Checklist de verificação, por blocos <span class="pill ${itens.length && feitos === itens.length ? "ok" : "at"}">${feitos}/${itens.length}</span></div>
+    ${fechado ? `<div class="aviso">Informe <b>Tipo</b> e <b>Acionamento</b> acima para abrir os blocos de checklist aplicáveis a este elevador, conforme a norma.</div>` : ""}
+    ${grupos.map(g => `<div class="small muted" style="margin-top:10px;font-weight:600">${esc(nomeBloco(m, g))}</div>` + itens.filter(x => x.grupo === g).map(it => {
       const r = (o.checklist || {})[it.id] || {};
-      return `<div class="chk-item"><div>${esc(it.texto)}<div class="small muted">evidência esperada: ${esc(it.evidenciaEsperada)}</div></div>
+      return `<div class="chk-item"><div>${esc(it.texto)}${it.ref ? ` <span class="small muted">(${esc(it.ref)})</span>` : ""}<div class="small muted">evidência esperada: ${esc(it.evidenciaEsperada)}</div></div>
         <select data-cs="${esc(it.id)}" aria-label="Resultado">${optHTML(ST_CHK, r.status || "pendente")}</select>
         <textarea data-co="${esc(it.id)}" rows="1" placeholder="Observação objetiva" aria-label="Observação">${esc(r.obs || "")}</textarea>
         <input data-ce="${esc(it.id)}" value="${esc((r.evidencias || []).map(rotEv).join(", "))}" placeholder="EV-001, EV-002" aria-label="Evidências"></div>`;
@@ -439,7 +610,7 @@ function renderObjeto(box, o, i) {
       <div class="fld"><label>Referências normativas do módulo</label><div class="small">${(m.normasDetalhe || []).map(n => `${esc(n.identificacao)} — <span class="muted">${esc(n.vigencia)}</span>`).join("<br>") || "—"}</div></div></div>
     <div class="row end" style="margin-top:12px"><button class="btn danger" id="${px}_rm">Remover objeto</button><button class="btn ghost" id="${px}_val">Validar</button><button class="btn" id="${px}_sv">Salvar objeto e checklist</button></div>`);
   const ler = () => {
-    const checklist = {};
+    const checklist = { ...(o.checklist || {}) };   // preserva respostas de itens que, por ora, ficaram fora do filtro
     const porCodigo = new Map(D.evidencias.map(e => [e.codigo.toUpperCase(), e.id]));
     itens.forEach(it => {
       const evs = (box.querySelector(`[data-ce="${it.id}"]`).value || "").split(/[,;\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
@@ -453,6 +624,13 @@ function renderObjeto(box, o, i) {
   $(px + "_val").onclick = async () => { try { const r = await post(`/api/modulos/${m.id}/validar`, { dados: lerSchema(m.schemaObjeto, px) });
     toast(r.erros.length ? r.erros.join(" ") : r.alertas.length ? `${r.alertas.length} alerta(s): ${r.alertas[0]}` : "Sem alertas.", !!r.erros.length); } catch (e) { toast(e.message, true); } };
   $(px + "_rm").onclick = () => excluirFilho("objetos", o.id);
+  // reabre o checklist (sem salvar) assim que características relevantes do schema mudarem
+  m.schemaObjeto.forEach(c => {
+    const campo = $(`${px}_${c.chave}`);
+    if (campo && (c.chave === "tipo" || c.chave === "acionamento")) {
+      campo.onchange = () => { try { renderObjeto(box, { ...o, dados: lerSchema(m.schemaObjeto, px) }, i); } catch (e) {} };
+    }
+  });
 }
 
 // ── Evidências ──

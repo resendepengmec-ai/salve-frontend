@@ -1,13 +1,18 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<!-- CSP: script-src ainda precisa de 'unsafe-inline' porque todo o JS do app vive
+     inline em cada HTML (sem etapa de build); script-src 'self' sozinho fecharia
+     a execucao das paginas. accounts.google.com cobre o SDK de login (GSI) e o
+     popup/iframe de autenticacao; salve-backend.onrender.com e a API. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://salve-backend.onrender.com https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'none'; form-action 'self';">
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>SALVe — Normas e prazos</title>
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#2C383D">
 <link rel="icon" href="favicon-48.png"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script>window.SALVE_API = "https://salve-backend.onrender.com";</script>
+<script src="config.js"></script>
 <link rel="stylesheet" href="pericia.css">
 </head>
 <body>

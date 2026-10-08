@@ -23,13 +23,22 @@
   async function api(path, opts = {}) {
     const init = { ...opts, headers: { "Content-Type": "application/json", Authorization: "Bearer " + TOKEN, ...(opts.headers || {}) } };
     if (init.body && typeof init.body !== "string") init.body = JSON.stringify(init.body);
-    const r = await fetch(BASE + path, init);
+    // Timeout explícito e opcional (ex.: leitura de PDF por IA, que pode
+    // demorar bem mais que uma chamada comum): sem isto, uma resposta lenta
+    // trava a Promise indefinidamente e qualquer botão/estado que dependa
+    // dela nunca libera.
+    let timer;
+    if (opts.timeoutMs) { const ac = new AbortController(); init.signal = ac.signal; timer = setTimeout(() => ac.abort(), opts.timeoutMs); }
+    let r;
+    try { r = await fetch(BASE + path, init); }
+    catch (e) { if (e.name === "AbortError") throw new Error("Tempo esgotado aguardando resposta — tente novamente."); throw e; }
+    finally { if (timer) clearTimeout(timer); }
     const j = await r.json().catch(() => ({}));
     if (r.status === 401) { try { localStorage.removeItem("salve_api"); } catch (e) {} location.href = "index.html"; throw new Error("sessão"); }
     if (!r.ok || j.ok === false) throw new Error(j.error || ("HTTP " + r.status));
     return j.data;
   }
-  const post = (p, b) => api(p, { method: "POST", body: b || {} });
+  const post = (p, b, timeoutMs) => api(p, { method: "POST", body: b || {}, timeoutMs });
   const del = (p) => api(p, { method: "DELETE" });
 
   function baixar(nome, b64, mime) {
