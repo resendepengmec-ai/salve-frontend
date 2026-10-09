@@ -263,12 +263,14 @@ async function enviarPeca() {
   } catch (e) { toast(e.message, true); }
   finally { if ($("pzEnviar")) { $("pzEnviar").disabled = false; $("pzEnviar").textContent = txt; } }
 }
+const QUESITOS_ADICIONADOS = new Set(); // transitório (só nesta sessão de página) — evita reclique duplicando o mesmo quesito
 function renderPecas(box) {
   const pecas = (D.pecas || []).slice().sort((a, b) => String(b._updatedAt || 0).localeCompare(String(a._updatedAt || 0)));
   box.innerHTML = pecas.length ? pecas.map((p, i) => {
     const px = "pz" + i;
     const sug = (p.leituraIA && p.leituraIA.sugestao) || {};
     const pontos = sug.pontosAlegados || [];
+    const quesitos = sug.quesitos || [];
     return `<div class="card" style="margin-top:10px"><div class="ch"><h2>${esc(p.nomeOriginal || p.arquivo || "Peça")}</h2>${pillPeca(p)}</div><div class="cb">
       ${p.erroLeitura ? `<div class="blq small">${esc(p.erroLeitura)}</div>` : ""}
       ${sug.incoerencia ? `<div class="blq small">⚠ Incoerência processual apontada pela IA: ${esc(sug.incoerencia)}</div>` : ""}
@@ -277,6 +279,10 @@ function renderPecas(box) {
       <div class="fld"><label for="${px}_resumo">Resumo (revise antes de confirmar)</label><textarea id="${px}_resumo" rows="3">${esc(p.resumoConfirmado || sug.resumoTese || "")}</textarea></div>
       ${pontos.length ? `<div class="fld"><label>Pontos identificados</label><ul class="small" style="margin:4px 0 0 18px;padding:0">${pontos.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
       ${sug.dispositivo ? `<div class="fld"><label>Dispositivo (se decisão)</label><div class="small">${esc(sug.dispositivo)}</div></div>` : ""}
+      ${quesitos.length ? `<div class="fld"><label>Quesitos identificados neste documento</label><ul class="small" style="margin:4px 0 0 18px;padding:0">${quesitos.map((q, qi) => {
+        const chave = p.id + "|" + qi;
+        return `<li>${q.numero ? `<b>${esc(q.numero)}.</b> ` : ""}${esc(q.texto)} ${QUESITOS_ADICIONADOS.has(chave) ? '<span class="pill ok">adicionado</span>' : `<button class="btn sm ghost" style="padding:0 6px" data-addq="${esc(p.id)}" data-qi="${qi}" type="button">Adicionar como quesito</button>`}</li>`;
+      }).join("")}</ul></div>` : ""}
       <div class="row end" style="margin-top:10px"><button class="btn sm danger" data-rm="${esc(p.id)}">Excluir</button>
         ${p.status === "erro" && p.arquivo ? `<button class="btn sm ghost" data-reler="${esc(p.id)}">Reler com IA</button>` : ""}
         ${!p.confirmado ? `<button class="btn sm" data-conf="${esc(p.id)}" data-px="${px}">Confirmar e adicionar à cronologia</button>` : ""}</div>
@@ -290,6 +296,17 @@ function renderPecas(box) {
     try {
       await post(url("/pecas/" + b.dataset.conf + "/confirmar"), { tipo: val(px + "_tipo"), parte: val(px + "_parte"), data: val(px + "_data"), resumo: val(px + "_resumo") });
       toast("Peça confirmada e adicionada à cronologia."); await recarregar();
+    } catch (e) { toast(e.message, true); }
+  });
+  box.querySelectorAll("[data-addq]").forEach(b => b.onclick = async () => {
+    const peca = pecas.find(x => x.id === b.dataset.addq);
+    const qi = Number(b.dataset.qi);
+    const q = peca && (((peca.leituraIA || {}).sugestao || {}).quesitos || [])[qi];
+    if (!q) return;
+    try {
+      await salvarFilho("quesitos", { autor: q.autor, numero: q.numero || "", texto: q.texto,
+        origem: { classe: "fato_autos", documentoId: peca.id, data: peca.data, evento: peca.nomeOriginal || "" } }, "Quesito adicionado.");
+      QUESITOS_ADICIONADOS.add(peca.id + "|" + qi);
     } catch (e) { toast(e.message, true); }
   });
 }
@@ -342,7 +359,7 @@ RENDER.escopo = (el) => {
   const confirmadas = (D.pecas || []).filter(p => p.confirmado).length;
   el.innerHTML = `<div class="aviso">Alegações de parte são sempre registradas como alegação — nunca como fato comprovado.</div>` +
     card("Rascunho de controvérsias por IA", `
-      <p class="small muted">Gera um rascunho de "Pontos incontroversos", "Pontos controvertidos" e "Questões submetidas à perícia" a partir das peças já confirmadas na cronologia (${confirmadas} confirmada${confirmadas === 1 ? "" : "s"}). O texto preenche os campos abaixo para revisão — nada é salvo automaticamente.</p>
+      <p class="small muted">Gera um rascunho de todos os campos abaixo — alegação do autor, alegação do réu, objeto determinado pelo juízo, pontos incontroversos, pontos controvertidos e questões submetidas à perícia — a partir das peças já confirmadas na cronologia (${confirmadas} confirmada${confirmadas === 1 ? "" : "s"}). O texto preenche os campos abaixo para revisão — nada é salvo automaticamente.</p>
       ${R.leituraIaDisponivel ? "" : '<div class="aviso">Leitura automática por IA não configurada neste servidor (defina ANTHROPIC_API_KEY nas variáveis de ambiente do Render).</div>'}
       <div class="row end"><button class="btn ghost" id="bControversias"${confirmadas < 2 ? " disabled" : ""}>Gerar rascunho de controvérsias com IA</button></div>
       ${confirmadas < 2 ? '<p class="small muted">Confirme ao menos duas peças (idealmente uma de cada parte) para habilitar.</p>' : ""}`) +
@@ -361,10 +378,11 @@ RENDER.escopo = (el) => {
       const out = await fluxo("sintetizar_controversias", {}, 180000);
       if (out && out.resultado) {
         const r = out.resultado;
-        [["incontroversos", r.incontroversos], ["controvertidos", r.controvertidos], ["questoesPericia", r.questoesPericia]].forEach(([k, texto]) => {
+        [["alegacaoAutor", r.alegacaoAutor, "alegacao_parte"], ["alegacaoReu", r.alegacaoReu, "alegacao_parte"], ["objetoJuizo", r.objetoJuizo, "decisao_juizo"],
+         ["incontroversos", r.incontroversos, "analise"], ["controvertidos", r.controvertidos, "analise"], ["questoesPericia", r.questoesPericia, "analise"]].forEach(([k, texto, classe]) => {
           if (!texto) return;
           $("s_" + k).value = texto;
-          const cSel = $("so_" + k + "_classe"); if (cSel) cSel.value = "analise";
+          const cSel = $("so_" + k + "_classe"); if (cSel) cSel.value = classe;
         });
         toast("Rascunho gerado — revise o texto e clique em Salvar escopo.");
       }

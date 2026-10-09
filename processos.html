@@ -56,10 +56,18 @@
         <div class="fld"><label for="nTribunal">Tribunal <span class="req">*</span></label><select id="nTribunal"><option value="">—</option><option>TJGO</option><option>TJDFT</option><option>Outro</option></select></div>
         <div class="fld"><label for="nComarca">Comarca / circunscrição</label><input id="nComarca"></div>
         <div class="fld"><label for="nVara">Vara</label><input id="nVara"></div>
+        <div class="fld"><label for="nJuiz">Juiz(a)</label><input id="nJuiz"></div>
+        <div class="fld"><label for="nClasse">Classe processual</label><input id="nClasse"></div>
+        <div class="fld"><label for="nValor">Valor da causa (R$)</label><input id="nValor" type="number" step="any"></div>
         <div class="fld"><label for="nNomeacao">Data da nomeação</label><input id="nNomeacao" type="date"></div>
         <div class="fld"><label for="nNomeacaoId">ID da decisão de nomeação</label><input id="nNomeacaoId"></div>
+        <div class="fld span2"><label for="nPrazo">Prazo concedido (texto da decisão)</label><input id="nPrazo"></div>
         <div class="fld span2"><label for="nObjeto">Objeto da perícia</label><input id="nObjeto"></div>
         <div class="fld"><label>Módulo técnico</label><div id="nModulos" class="row"></div></div>
+      </div>
+      <div class="grid g3">
+        <div class="fld"><label for="nHonor">Honorários já arbitrados (R$)</label><input id="nHonor" type="number" step="any"></div>
+        <div class="fld span2"><label for="nHonorId">ID da decisão de arbitramento</label><input id="nHonorId"></div>
       </div>
       <div class="row end" style="margin-top:14px"><button class="btn ghost" id="btnCancelar">Cancelar</button><button class="btn" id="btnCriar">Criar e abrir</button></div>
     </div>
@@ -129,9 +137,15 @@ $("nLerPdf").onclick = async () => {
     if (s.numero) $("nNumero").value = s.numero;
     if (s.comarca) $("nComarca").value = s.comarca;
     if (s.vara) $("nVara").value = s.vara;
+    if (s.juiz) $("nJuiz").value = s.juiz;
+    if (s.classe) $("nClasse").value = s.classe;
+    if (s.valorCausa != null) $("nValor").value = s.valorCausa;
     if (s.dataNomeacao) $("nNomeacao").value = s.dataNomeacao;
     if (s.nomeacaoId) $("nNomeacaoId").value = s.nomeacaoId;
+    if (s.prazoConcedido) $("nPrazo").value = s.prazoConcedido;
     if (s.objeto) $("nObjeto").value = s.objeto;
+    if (s.honorariosArbitrados != null) $("nHonor").value = s.honorariosArbitrados;
+    if (s.honorariosDecisaoId) $("nHonorId").value = s.honorariosDecisaoId;
     if (s.tribunal) {
       const opt = [...$("nTribunal").options].find(o => o.value.toLowerCase() === s.tribunal.toLowerCase());
       if (opt) $("nTribunal").value = opt.value;
@@ -145,9 +159,12 @@ $("nLerPdf").onclick = async () => {
 $("btnCriar").onclick = async () => {
   const file = ($("nArq").files || [])[0];
   const body = { numero: $("nNumero").value.trim(), tribunal: $("nTribunal").value, comarca: $("nComarca").value.trim(), vara: $("nVara").value.trim(),
-    dataNomeacao: $("nNomeacao").value, nomeacaoId: $("nNomeacaoId").value.trim(), objeto: $("nObjeto").value.trim(),
+    juiz: $("nJuiz").value.trim(), classe: $("nClasse").value.trim(), valorCausa: $("nValor").value === "" ? null : Number($("nValor").value),
+    dataNomeacao: $("nNomeacao").value, nomeacaoId: $("nNomeacaoId").value.trim(), prazoConcedido: $("nPrazo").value.trim(), objeto: $("nObjeto").value.trim(),
     modulos: [...document.querySelectorAll("#nModulos input:checked")].map(i => i.value),
     partes: (ULTIMA_LEITURA && ULTIMA_LEITURA.partes || []).filter(p => p.polo) };
+  if ($("nHonor").value !== "" || $("nHonorId").value.trim())
+    body.honorarios = { arbitrado: $("nHonor").value === "" ? null : Number($("nHonor").value), arbitradoId: $("nHonorId").value.trim() || null };
   if (!body.numero || !body.tribunal) return toast("Informe número e tribunal.", true);
   const btn = $("btnCriar"), txt = btn.textContent;
   btn.disabled = true;
