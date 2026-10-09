@@ -1,4 +1,4 @@
-const CACHE = "salve-v5";
+const CACHE = "salve-v6";
 const SHELL = ["./","index.html","contratos.html","ficha-avaliacao.html","bens.html","admin.html","processos.html","processo.html","normas.html","pericia.css","pericia-core.js",
   "config.js","manifest.webmanifest","icon-192.png","icon-512.png","favicon-48.png","apple-touch-icon.png"];
 
