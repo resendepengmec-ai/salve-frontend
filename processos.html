@@ -62,12 +62,15 @@
         <div class="fld"><label for="nNomeacao">Data da nomeação</label><input id="nNomeacao" type="date"></div>
         <div class="fld"><label for="nNomeacaoId">ID da decisão de nomeação</label><input id="nNomeacaoId"></div>
         <div class="fld span2"><label for="nPrazo">Prazo concedido (texto da decisão)</label><input id="nPrazo"></div>
+        <div class="fld"><label for="nPrazoDias">Prazo do laudo (dias)</label><input id="nPrazoDias" type="number" step="1"></div>
         <div class="fld span2"><label for="nObjeto">Objeto da perícia</label><input id="nObjeto"></div>
         <div class="fld"><label>Módulo técnico</label><div id="nModulos" class="row"></div></div>
       </div>
       <div class="grid g3">
+        <div class="fld"><label for="nReq">Quem requereu a prova</label><select id="nReq"><option value="">—</option><option value="autor">Parte autora</option><option value="reu">Parte ré</option><option value="ambas">Ambas as partes</option><option value="juizo">Determinada de ofício</option><option value="mp">Ministério Público</option></select></div>
+        <div class="fld"><label for="nAnt">Quem antecipa os honorários</label><select id="nAnt"><option value="">—</option><option value="autor">Parte autora</option><option value="reu">Parte ré</option><option value="rateio">Rateio entre as partes</option><option value="custeio_publico">Custeio público (gratuidade)</option><option value="a_definir">A definir pelo Juízo</option></select></div>
         <div class="fld"><label for="nHonor">Honorários já arbitrados (R$)</label><input id="nHonor" type="number" step="any"></div>
-        <div class="fld span2"><label for="nHonorId">ID da decisão de arbitramento</label><input id="nHonorId"></div>
+        <div class="fld"><label for="nHonorId">ID da decisão de arbitramento</label><input id="nHonorId"></div>
       </div>
       <div class="row end" style="margin-top:14px"><button class="btn ghost" id="btnCancelar">Cancelar</button><button class="btn" id="btnCriar">Criar e abrir</button></div>
     </div>
@@ -143,9 +146,13 @@ $("nLerPdf").onclick = async () => {
     if (s.dataNomeacao) $("nNomeacao").value = s.dataNomeacao;
     if (s.nomeacaoId) $("nNomeacaoId").value = s.nomeacaoId;
     if (s.prazoConcedido) $("nPrazo").value = s.prazoConcedido;
+    if (s.prazoDias != null) $("nPrazoDias").value = s.prazoDias;
     if (s.objeto) $("nObjeto").value = s.objeto;
     if (s.honorariosArbitrados != null) $("nHonor").value = s.honorariosArbitrados;
     if (s.honorariosDecisaoId) $("nHonorId").value = s.honorariosDecisaoId;
+    if (s.requerente) $("nReq").value = s.requerente;
+    if (s.antecipante) $("nAnt").value = s.antecipante;
+    if (s.moduloSugerido) { const cb = document.querySelector(`#nModulos input[value="${CSS.escape(s.moduloSugerido)}"]`); if (cb) cb.checked = true; }
     if (s.tribunal) {
       const opt = [...$("nTribunal").options].find(o => o.value.toLowerCase() === s.tribunal.toLowerCase());
       if (opt) $("nTribunal").value = opt.value;
@@ -163,8 +170,10 @@ $("btnCriar").onclick = async () => {
     dataNomeacao: $("nNomeacao").value, nomeacaoId: $("nNomeacaoId").value.trim(), prazoConcedido: $("nPrazo").value.trim(), objeto: $("nObjeto").value.trim(),
     modulos: [...document.querySelectorAll("#nModulos input:checked")].map(i => i.value),
     partes: (ULTIMA_LEITURA && ULTIMA_LEITURA.partes || []).filter(p => p.polo) };
-  if ($("nHonor").value !== "" || $("nHonorId").value.trim())
-    body.honorarios = { arbitrado: $("nHonor").value === "" ? null : Number($("nHonor").value), arbitradoId: $("nHonorId").value.trim() || null };
+  const prazoDias = $("nPrazoDias").value === "" ? null : Number($("nPrazoDias").value);
+  if ($("nHonor").value !== "" || $("nHonorId").value.trim() || $("nReq").value || $("nAnt").value)
+    body.honorarios = { arbitrado: $("nHonor").value === "" ? null : Number($("nHonor").value), arbitradoId: $("nHonorId").value.trim() || null,
+      requerente: $("nReq").value || null, antecipante: $("nAnt").value || null };
   if (!body.numero || !body.tribunal) return toast("Informe número e tribunal.", true);
   const btn = $("btnCriar"), txt = btn.textContent;
   btn.disabled = true;
@@ -172,6 +181,8 @@ $("btnCriar").onclick = async () => {
     const p = await post("/api/pericia/processos", body);
     if (body.dataNomeacao) await post(`/api/pericia/processos/${p.id}/eventos`, { data: body.dataNomeacao, eventoId: body.nomeacaoId, documento: "Decisão de nomeação",
       conteudo: "Nomeação do perito", consequencia: "Início do prazo de manifestação do perito", origem: { classe: "decisao_juizo", documentoId: body.nomeacaoId, data: body.dataNomeacao } }).catch(() => {});
+    if (body.dataNomeacao && prazoDias != null) await post(`/api/pericia/processos/${p.id}/prazos`, { tipo: "laudo", dataReferencia: body.dataNomeacao, dias: prazoDias,
+      eventoInicial: body.nomeacaoId || "Decisão de nomeação" }).catch(() => {});
     // Mesmo PDF usado pra pré-preencher (ou outro, se o perito trocou o
     // arquivo) agora alimenta a leitura completa — cronologia, decisões e
     // controvérsias — em segundo plano, criando peças rascunho no processo
