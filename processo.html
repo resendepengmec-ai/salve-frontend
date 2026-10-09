@@ -297,13 +297,13 @@ RENDER.crono = (el) => {
   const ev = D.eventos.slice().sort((a, b) => String(a.data).localeCompare(String(b.data)));
   el.innerHTML = card("PDF consolidado dos autos (até 100 MB)", `
       <p class="small muted">Para o histórico completo do processo (do início até a nomeação) ou outros lotes grandes de autos. Documento vai em blocos pequenos (não trava o navegador) e é lido pela IA em blocos de páginas, em segundo plano — cada petição/decisão identificada vira uma peça rascunho na lista abaixo, já sinalizando possíveis incoerências processuais. Use o campo de instruções para dizer o que priorizar na leitura.</p>
-      ${R.leituraIaDisponivel ? "" : '<div class="aviso">Leitura automática por IA não configurada neste servidor.</div>'}
+      ${R.leituraIaDisponivel ? "" : '<div class="aviso">Leitura automática por IA não configurada neste servidor (defina ANTHROPIC_API_KEY nas variáveis de ambiente do Render).</div>'}
       <div class="fld spanall"><label for="atArq">PDF consolidado</label><input type="file" id="atArq" accept="application/pdf"></div>
       <div class="fld"><label for="atPrompt">Instruções para a IA (opcional) — ex.: "foque nas decisões sobre o objeto da perícia" ou "páginas 1–80 são a petição inicial e anexos"</label><textarea id="atPrompt" rows="2"></textarea></div>
       <div class="row end" style="margin-top:8px"><button class="btn" id="atEnviar">Enviar e processar</button></div>
       <div id="atLista" style="margin-top:4px"></div>`) +
     card("Peças processuais (PDF)", `
-      ${R.leituraIaDisponivel ? "" : '<div class="aviso">Leitura automática por IA não configurada neste servidor — envie o PDF e preencha tipo, parte, data e resumo manualmente antes de confirmar.</div>'}
+      ${R.leituraIaDisponivel ? "" : '<div class="aviso">Leitura automática por IA não configurada neste servidor (defina ANTHROPIC_API_KEY nas variáveis de ambiente do Render) — envie o PDF e preencha tipo, parte, data e resumo manualmente antes de confirmar.</div>'}
       <div class="grid g4"><div class="fld spanall"><label for="pzArq">PDF da petição ou decisão (até 8 MB)</label><input type="file" id="pzArq" accept="application/pdf"></div>
       ${sel("pzTipo", "Tipo (opcional — a IA sugere)", R.tiposPeca, "")}${sel("pzParte", "Parte (opcional — a IA sugere)", R.partesPeca, "")}${fld("pzData", "Data (opcional — a IA sugere)", "", "date")}</div>
       <div class="row end" style="margin-top:8px"><button class="btn" id="pzEnviar">Enviar e ler</button></div>
@@ -343,7 +343,7 @@ RENDER.escopo = (el) => {
   el.innerHTML = `<div class="aviso">Alegações de parte são sempre registradas como alegação — nunca como fato comprovado.</div>` +
     card("Rascunho de controvérsias por IA", `
       <p class="small muted">Gera um rascunho de "Pontos incontroversos", "Pontos controvertidos" e "Questões submetidas à perícia" a partir das peças já confirmadas na cronologia (${confirmadas} confirmada${confirmadas === 1 ? "" : "s"}). O texto preenche os campos abaixo para revisão — nada é salvo automaticamente.</p>
-      ${R.leituraIaDisponivel ? "" : '<div class="aviso">Leitura automática por IA não configurada neste servidor.</div>'}
+      ${R.leituraIaDisponivel ? "" : '<div class="aviso">Leitura automática por IA não configurada neste servidor (defina ANTHROPIC_API_KEY nas variáveis de ambiente do Render).</div>'}
       <div class="row end"><button class="btn ghost" id="bControversias"${confirmadas < 2 ? " disabled" : ""}>Gerar rascunho de controvérsias com IA</button></div>
       ${confirmadas < 2 ? '<p class="small muted">Confirme ao menos duas peças (idealmente uma de cada parte) para habilitar.</p>' : ""}`) +
     ESCOPO.map(([k, t, cl]) => card(t, `<div class="fld"><textarea id="s_${k}" rows="3">${esc(e[k]?.texto || "")}</textarea></div>
