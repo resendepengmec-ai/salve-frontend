@@ -150,9 +150,6 @@ $("nLerPdf").onclick = async () => {
     if (s.objeto) $("nObjeto").value = s.objeto;
     if (s.honorariosArbitrados != null) $("nHonor").value = s.honorariosArbitrados;
     if (s.honorariosDecisaoId) $("nHonorId").value = s.honorariosDecisaoId;
-    if (s.requerente) $("nReq").value = s.requerente;
-    if (s.antecipante) $("nAnt").value = s.antecipante;
-    if (s.moduloSugerido) { const cb = document.querySelector(`#nModulos input[value="${CSS.escape(s.moduloSugerido)}"]`); if (cb) cb.checked = true; }
     if (s.tribunal) {
       const opt = [...$("nTribunal").options].find(o => o.value.toLowerCase() === s.tribunal.toLowerCase());
       if (opt) $("nTribunal").value = opt.value;
